@@ -59,7 +59,7 @@ DB_FOLDER_INT4_GLOBAL    = "./db_int4_global"
 
 MODEL_NAME   = "snowflake-arctic-embed2"
 EMBEDDING_DIM= 1024
-K_RESULTS    = 50
+K_RESULTS    = 10
 QUERY        = "Artificial intelligence is transforming industries."
 
 def plot_score_comparison(results_float32, results_quantized, labels, file_name):
@@ -227,6 +227,7 @@ def show_scores_side_by_side(results_float32: list, results_two_stage: list, lab
         logger.info(f"Maximum Percentage Difference: {max_perc_diff:.4f}%")
         logger.info(f"Minimum Percentage Difference: {min_perc_diff:.4f}%")
         
+        label = label.replace(' ', '_')
         # Plotting
         plot_score_comparison(results_float32, [results_two_stage], [label], f"{label}_scores_comparison.png")
         plot_percentage_differences({label: percentage_diffs}, f"{label}_percentage_diffs.png")
@@ -306,6 +307,7 @@ def compare_results(results_float32: list, results_quantized: list, label: str =
         logger.info(f"Maximum Percentage Difference: {max_perc_diff:.4f}%")
         logger.info(f"Minimum Percentage Difference: {min_perc_diff:.4f}%")
         
+        label = label.replace(' ', '_')
         # Plotting
         plot_score_comparison(results_float32, results_quantized, [label], f"{label}_scores_comparison.png")
         plot_percentage_differences({label: percentage_diffs}, f"{label}_percentage_diffs.png")
