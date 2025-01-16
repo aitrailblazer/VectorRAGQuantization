@@ -1,4 +1,4 @@
-# Grok-Quantized-RAG-Navigator
+# Vector RAG Quantization
 
 A project comparing local and global quantization strategies for vector databases, focusing on performance, precision, efficiency, and disk storage.
 
