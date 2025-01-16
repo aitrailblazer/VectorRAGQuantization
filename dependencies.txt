@@ -1,0 +1,7 @@
+numpy
+faiss-cpu  # Use faiss-gpu if GPU support is required
+rocksdict
+tqdm
+requests
+scikit-learn
+
