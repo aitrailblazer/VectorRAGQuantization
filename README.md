@@ -6,6 +6,109 @@ A project comparing local and global quantization strategies for vector database
 
 In the rapidly evolving landscape of artificial intelligence and machine learning, efficient management and retrieval of high-dimensional data have become paramount. Vector databases play a crucial role in enabling applications such as **Retrieval-Augmented Generation (RAG)**, **recommendation systems**, **semantic search engines**, and **personalized content delivery**. These applications rely on the ability to perform swift and accurate similarity searches across vast datasets of embedding vectors.
 
+### **Justification of Storage Efficiency Calculations**
+
+The storage efficiency percentages provided for each quantization method are derived from the reduction in the number of bits used per embedding component compared to the standard **Float32** representation. Below is a detailed justification of these calculations:
+
+---
+
+#### **1. Understanding Bit Depths**
+
+- **Float32:**
+  - **Bit Depth:** 32 bits per embedding component.
+  - **Usage:** Standard representation offering high precision.
+
+- **Int4:**
+  - **Bit Depth:** 4 bits per embedding component.
+  - **Usage:** Low-precision quantization suitable for extreme memory constraints.
+
+- **Int8:**
+  - **Bit Depth:** 8 bits per embedding component.
+  - **Usage:** Medium-precision quantization balancing memory efficiency and accuracy.
+
+- **Int16:**
+  - **Bit Depth:** 16 bits per embedding component.
+  - **Usage:** High-precision quantization ensuring minimal accuracy loss.
+
+---
+
+### **Storage Reduction Calculations**
+
+The storage reduction for each quantization method is calculated based on the number of bits used per embedding component compared to the standard **Float32** representation (32 bits per component). Below are the detailed calculations:
+
+---
+
+#### **Int4 Quantization**
+
+- **Bits Reduced:**
+  
+  $32 \text{ bits} - 4 \text{ bits} = 28 \text{ bits}$
+
+- **Storage Reduction:**
+  
+  $\left( \frac{28}{32} \right) \times 100\% = 87.5\%$
+
+---
+
+#### **Int8 Quantization**
+
+- **Bits Reduced:**
+  
+  $32 \text{ bits} - 8 \text{ bits} = 24 \text{ bits}$
+
+- **Storage Reduction:**
+  
+  $\left( \frac{24}{32} \right) \times 100\% = 75\%$
+
+---
+
+#### **Int16 Quantization**
+
+- **Bits Reduced:**
+  
+  $32 \text{ bits} - 16 \text{ bits} = 16 \text{ bits}$
+
+- **Storage Reduction:**
+  
+  $\left( \frac{16}{32} \right) \times 100\% = 50\%$
+
+---
+
+#### **Summary of Storage Reduction**
+
+| **Quantization Method** | **Bits Reduced**                                   | **Storage Reduction (%)** |
+|-------------------------|----------------------------------------------------|----------------------------|
+| **Int4**                | $32 \text{ bits} - 4 \text{ bits} = 28 \text{ bits}$  | 87.5%                      |
+| **Int8**                | $32 \text{ bits} - 8 \text{ bits} = 24 \text{ bits}$  | 75%                        |
+| **Int16**               | $32 \text{ bits} - 16 \text{ bits} = 16 \text{ bits}$ | 50%                        |
+
+---
+
+
+#### **4. Implications of Storage Reduction**
+
+- **Memory Footprint:**
+  - **Int4:** Reduces memory usage by **87.5%**, enabling the handling of significantly larger datasets within the same memory constraints.
+  - **Int8:** Decreases memory usage by **75%**, providing a substantial balance between compression and computational efficiency.
+  - **Int16:** Lowers memory usage by **50%**, maintaining a moderate level of compression while preserving higher precision.
+
+- **Disk Space Savings:**
+  - The reduction percentages directly translate to decreased storage requirements on disk, allowing for more cost-effective storage solutions and faster data retrieval times.
+
+---
+
+### **Conclusion**
+
+The storage efficiency gains from quantization are crucial for optimizing vector databases, especially when dealing with high-dimensional embeddings and large-scale datasets. By understanding and applying these quantization methods:
+
+- **Int4 Quantization** offers the highest storage savings (**87.5%**) but at the cost of reduced precision, making it suitable for applications where memory is a critical constraint and slight accuracy loss is acceptable.
+  
+- **Int8 Quantization** strikes a balance with a **75%** storage reduction and minimal precision loss, ideal for most real-world applications that require both efficiency and accuracy.
+  
+- **Int16 Quantization** provides a **50%** reduction in storage while maintaining near-lossless precision, making it the preferred choice for applications where high accuracy is paramount.
+
+These calculated storage reductions empower developers and organizations to make informed decisions based on their specific resource constraints and precision requirements, ultimately enhancing the performance and scalability of AI-driven applications.
+
 ### Efficient Resource Utilization
 
 As the volume of data scales, so does the dimensionality of embeddings, leading to significant **memory and storage demands**. Traditional **Float32** representations, while precise, are **memory-intensive** and **computationally expensive**, posing challenges for large-scale deployments. **Quantization** techniques, which reduce the bit-depth of embeddings (e.g., to **Int4**, **Int8**, or **Int16**), offer a solution by **compressing data** and **reducing memory footprint**, thereby enabling more **cost-effective** and **scalable** systems.
@@ -28,7 +131,7 @@ The ability to efficiently store and retrieve high-dimensional embeddings accele
 
 ---
 
-By systematically evaluating and implementing both local and global quantization strategies, the **Grok-Quantized-RAG-Navigator** project addresses critical challenges in managing high-dimensional data. This enables the creation of **robust**, **scalable**, and **efficient** vector databases that underpin the next generation of intelligent applications.
+By systematically evaluating and implementing both local and global quantization strategies, the **Vector RAG Quantization** project addresses critical challenges in managing high-dimensional data. This enables the creation of **robust**, **scalable**, and **efficient** vector databases that underpin the next generation of intelligent applications.
 
 ## Table of Contents
 
