@@ -1,6 +1,8 @@
 # Vector RAG Quantization
 
-A project comparing local and global quantization strategies for vector databases, focusing on performance, precision, efficiency, and disk storage.
+**Revolutionizing Data Management**
+
+The AI and ML field demands efficient high-dimensional data handling. Vector databases are vital for Retrieval-Augmented Generation (RAG), recommendation systems, and more. These applications excel in swift similarity searches across vast embedding vector datasets.
 
 ## Importance
 
@@ -8,7 +10,7 @@ In the rapidly evolving landscape of artificial intelligence and machine learnin
 
 ### **Justification of Storage Efficiency Calculations**
 
-The storage efficiency percentages provided for each quantization method are derived from the reduction in the number of bits used per embedding component compared to the standard **Float32** representation. Below is a detailed justification of these calculations:
+Quantization methods significantly enhance storage efficiency. Calculations show reduced bits per component vs. Float32, ensuring optimal data management.
 
 ---
 
@@ -34,58 +36,214 @@ The storage efficiency percentages provided for each quantization method are der
 
 ### **Storage Reduction Calculations**
 
-The storage reduction for each quantization method is calculated based on the number of bits used per embedding component compared to the standard **Float32** representation (32 bits per component). Below are the detailed calculations:
+The storage reduction for each quantization method is calculated based on the number of bits used per embedding component compared to the standard **Float32** representation (32 bits per component). Below are the detailed calculations for different quantization methods:
 
 ---
 
 #### **Int4 Quantization**
 
-- **Bits Reduced:**
-  
-  $32 \text{ bits} - 4 \text{ bits} = 28 \text{ bits}$
+- **Original Size**:
+  - For an embedding dimension of `1024`:
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
 
-- **Storage Reduction:**
-  
-  $\left( \frac{28}{32} \right) \times 100\% = 87.5\%$
+- **Quantized Size with Nibble Packing**:
+  - Each 4-bit value (nibble) is packed two per byte:
+    - Size of int4 packed embedding = $\frac{1024}{2} = 512 \text{ bytes}$ per document.
 
----
+- **Additional Metadata**:
+  - Each document stores `min_val` and `max_val` for scaling back, each taking 4 bytes:
+    - Additional metadata size = $2 \times 4 \text{ bytes} = 8 \text{ bytes}$.
 
-#### **Int8 Quantization**
+- **Total Storage per Document after Quantization**:
+  - Int4 packed data: 512 bytes
+  - Metadata: 8 bytes
+  - Total = $512 + 8 = 520 \text{ bytes}$ per document.
 
-- **Bits Reduced:**
-  
-  $32 \text{ bits} - 8 \text{ bits} = 24 \text{ bits}$
+- **Sieve in Numbers**:
+  - The storage reduction in terms of bytes for each embedding:
+    - Sieve = $4096 \text{ bytes (float32)} - 520 \text{ bytes (int4 + metadata)} = 3576 \text{ bytes saved per document}$.
 
-- **Storage Reduction:**
-  
-  $\left( \frac{24}{32} \right) \times 100\% = 75\%$
-
----
-
-#### **Int16 Quantization**
-
-- **Bits Reduced:**
-  
-  $32 \text{ bits} - 16 \text{ bits} = 16 \text{ bits}$
-
-- **Storage Reduction:**
-  
-  $\left( \frac{16}{32} \right) \times 100\% = 50\%$
+Therefore, the storage saved by using 4-bit quantization with nibble packing is **3576 bytes** per document. 
 
 ---
 
-#### **Summary of Storage Reduction**
+#### **Int4Global Quantization**
 
-| **Quantization Method** | **Bits Reduced**                                   | **Storage Reduction (%)** |
-|-------------------------|----------------------------------------------------|----------------------------|
-| **Int4**                | $32 \text{ bits} - 4 \text{ bits} = 28 \text{ bits}$  | 87.5%                      |
-| **Int8**                | $32 \text{ bits} - 8 \text{ bits} = 24 \text{ bits}$  | 75%                        |
-| **Int16**               | $32 \text{ bits} - 16 \text{ bits} = 16 \text{ bits}$ | 50%                        |
+- **Original Size**:
+  - For an embedding dimension of `1024`:
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+
+- **Quantized Size with Nibble Packing**:
+  - Each 4-bit value (nibble) is packed two per byte:
+    - Size of int4 packed embedding = $\frac{1024}{2} = 512 \text{ bytes}$ per document.
+
+- **Additional Metadata**:
+  - No per-document `min_val` and `max_val` are stored since we use a single `global_limit` for all documents:
+    - Additional metadata size = $0 \text{ bytes}$ per document (global limit is in config).
+
+- **Total Storage per Document after Quantization**:
+  - Int4 packed data: 512 bytes
+  - Metadata: 0 bytes (since global limit applies to all)
+  - Total = $512 \text{ bytes}$ per document.
+
+- **Sieve in Numbers**:
+  - The storage reduction in terms of bytes for each embedding:
+    - Sieve = $4096 \text{ bytes (float32)} - 512 \text{ bytes (int4)} = 3584 \text{ bytes saved per document}$.
+
+Therefore, the storage saved by using 4-bit quantization with a global limit (Int4Global) is **3584 bytes** per document. 
 
 ---
 
+### **Comparison**
 
-#### **4. Implications of Storage Reduction**
+- **Int4 Quantization vs. Int4Global Quantization:**
+  - **Storage Efficiency:** 
+    - **Int4:** Saves **3576 bytes** with additional metadata for precision.
+    - **Int4Global:** Saves **3584 bytes** with no per-document metadata, maximizing storage efficiency but at a potential loss of precision.
+  - **Precision:**
+    - **Int4:** Offers better precision through document-specific scaling.
+    - **Int4Global:** Uses a uniform scale, which might not be ideal for all documents, possibly leading to precision loss.
+  - **Use Case:**
+    - **Int4:** Suited for applications where individual document precision is critical.
+    - **Int4Global:** Ideal for scenarios where uniform scaling is acceptable, and storage is a priority.
+
+---
+
+#### **Int8 Quantization (VectorDBInt8)**
+
+- **Original Size**:
+  - For an embedding dimension of `1024`:
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+
+- **Quantized Size**:
+  - Each 8-bit value is stored individually:
+    - Size of int8 packed embedding = $1024 \times 1 \text{ byte} = 1024 \text{ bytes}$ per document.
+
+- **Additional Metadata**:
+  - Each document stores `min_val` and `max_val` for scaling, each taking 4 bytes:
+    - Additional metadata size = $2 \times 4 \text{ bytes} = 8 \text{ bytes}$.
+
+- **Total Storage per Document after Quantization**:
+  - Int8 data: 1024 bytes
+  - Metadata: 8 bytes
+  - Total = $1024 + 8 = 1032 \text{ bytes}$ per document.
+
+- **Sieve in Numbers**:
+  - The storage reduction in terms of bytes for each embedding:
+    - Sieve = $4096 \text{ bytes (float32)} - 1032 \text{ bytes (int8 + metadata)} = 3064 \text{ bytes saved per document}$.
+
+Therefore, the storage saved by using 8-bit quantization with per-document scaling is **3064 bytes** per document. 
+
+---
+
+#### **Int8Global Quantization (VectorDBInt8Global)**
+
+- **Original Size**:
+  - For an embedding dimension of `1024`:
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+
+- **Quantized Size**:
+  - Each 8-bit value is stored individually:
+    - Size of int8 packed embedding = $1024 \times 1 \text{ byte} = 1024 \text{ bytes}$ per document.
+
+- **Additional Metadata**:
+  - No per-document `min_val` and `max_val` are stored since we use a single `global_limit` for all documents:
+    - Additional metadata size = $0 \text{ bytes}$ per document (global limit is in config).
+
+- **Total Storage per Document after Quantization**:
+  - Int8 data: 1024 bytes
+  - Metadata: 0 bytes (since global limit applies to all)
+  - Total = $1024 \text{ bytes}$ per document.
+
+- **Sieve in Numbers**:
+  - The storage reduction in terms of bytes for each embedding:
+    - Sieve = $4096 \text{ bytes (float32)} - 1024 \text{ bytes (int8)} = 3072 \text{ bytes saved per document}$.
+
+Therefore, the storage saved by using 8-bit quantization with a global limit is **3072 bytes** per document. 
+
+### **Comparison**
+
+- **Int8 Quantization vs. Int8Global Quantization:**
+  - **Storage Efficiency:** 
+    - **Int8:** Saves **3064 bytes** with per-document scaling for better precision.
+    - **Int8Global:** Saves **3072 bytes** without per-document metadata, offering slightly more storage efficiency.
+  - **Precision:**
+    - **Int8:** Maintains document-specific scaling, preserving accuracy for varied datasets.
+    - **Int8Global:** Applies a uniform global limit, potentially sacrificing precision for consistency.
+  - **Use Case:**
+    - **Int8:** Recommended when maintaining high precision across diverse datasets is vital.
+    - **Int8Global:** Useful when storage savings are prioritized over individual document precision.
+
+---
+
+#### **Int16 Quantization (VectorDBInt16)**
+
+- **Original Size**:
+  - For an embedding dimension of `1024`:
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+
+- **Quantized Size**:
+  - Each 16-bit value is stored individually:
+    - Size of int16 packed embedding = $1024 \times 2 \text{ bytes} = 2048 \text{ bytes}$ per document.
+
+- **Additional Metadata**:
+  - Each document stores `min_val` and `max_val` for scaling, each taking 4 bytes:
+    - Additional metadata size = $2 \times 4 \text{ bytes} = 8 \text{ bytes}$.
+
+- **Total Storage per Document after Quantization**:
+  - Int16 data: 2048 bytes
+  - Metadata: 8 bytes
+  - Total = $2048 + 8 = 2056 \text{ bytes}$ per document.
+
+- **Sieve in Numbers**:
+  - The storage reduction in terms of bytes for each embedding:
+    - Sieve = $4096 \text{ bytes (float32)} - 2056 \text{ bytes (int16 + metadata)} = 2040 \text{ bytes saved per document}$.
+
+Therefore, the storage saved by using 16-bit quantization with per-document scaling is **2040 bytes** per document. 
+
+---
+
+#### **Int16Global Quantization (VectorDBInt16Global)**
+
+- **Original Size**:
+  - For an embedding dimension of `1024`:
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+
+- **Quantized Size**:
+  - Each 16-bit value is stored individually:
+    - Size of int16 packed embedding = $1024 \times 2 \text{ bytes} = 2048 \text{ bytes}$ per document.
+
+- **Additional Metadata**:
+  - No per-document `min_val` and `max_val` are stored since we use a single `global_limit` for all documents:
+    - Additional metadata size = $0 \text{ bytes}$ per document (global limit is in config).
+
+- **Total Storage per Document after Quantization**:
+  - Int16 data: 2048 bytes
+  - Metadata: 0 bytes (since global limit applies to all)
+  - Total = $2048 \text{ bytes}$ per document.
+
+- **Sieve in Numbers**:
+  - The storage reduction in terms of bytes for each embedding:
+    - Sieve = $4096 \text{ bytes (float32)} - 2048 \text{ bytes (int16)} = 2048 \text{ bytes saved per document}$.
+
+Therefore, the storage saved by using 16-bit quantization with a global limit is **2048 bytes** per document. 
+
+### **Comparison**
+
+- **Int16 Quantization vs. Int16Global Quantization:**
+  - **Storage Efficiency:** 
+    - **Int16:** Saves **2040 bytes** with document-specific scaling for high precision.
+    - **Int16Global:** Saves **2048 bytes** by eliminating per-document metadata, offering maximum storage efficiency at the cost of uniform scaling.
+  - **Precision:**
+    - **Int16:** Provides high precision with individual scaling, suitable for applications where accuracy is paramount.
+    - **Int16Global:** Applies a global scaling, which might not accommodate all data distributions, potentially affecting precision.
+  - **Use Case:**
+    - **Int16:** Choose for scenarios where precision is critical, and data diversity is significant.
+    - **Int16Global:** Opt for when storage efficiency is the top priority, and the dataset has relatively uniform characteristics.
+
+---
+
+### **4. Implications of Storage Reduction**
 
 - **Memory Footprint:**
   - **Int4:** Reduces memory usage by **87.5%**, enabling the handling of significantly larger datasets within the same memory constraints.
