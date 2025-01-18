@@ -36,61 +36,78 @@ Quantization methods significantly enhance storage efficiency. Calculations show
 
 ### **Storage Reduction Calculations**
 
-The storage reduction for each quantization method is calculated based on the number of bits used per embedding component compared to the standard **Float32** representation (32 bits per component). Below are the detailed calculations for different quantization methods:
+The storage reduction for each quantization method is calculated based on the number of bits used per embedding component compared to the standard **Float32** representation (32 bits per component). Below are the detailed calculations for different quantization methods, considering embeddings are per token:
 
+Summary of Storage Savings from Vector RAG Quantization
+Quantizing vector embeddings for a document of 410 tokens significantly reduces storage requirements:
+
+Int4 Quantization achieves about 87.30% savings, offering substantial compression but with a slight overhead for metadata per token.
+
+Int4Global Quantization leads with roughly 87.50% savings, maximizing efficiency by using a single scaling factor across all tokens, though potentially at the expense of some precision.
+
+Int8 Quantization provides approximately 74.74% reduction in storage, balancing between compression and maintaining more data precision through per-token scaling.
+Int8Global Quantization saves around 75.00%, slightly more efficient than Int8 due to not needing per-token metadata, yet still maintains a reasonable level of precision.
+
+Int16 Quantization reduces storage by about 49.48%, ensuring high precision with individual scaling for each token, suitable for applications where data accuracy is critical.
+
+Int16Global Quantization offers exactly 50.00% savings, providing a mid-point between storage efficiency and precision with a uniform scaling approach.
+
+These savings percentages illustrate the trade-offs between storage efficiency, computational resources, and precision, aiding in deciding which quantization method to employ based on specific application needs.
 ---
 
 #### **Int4 Quantization**
 
-- **Original Size**:
+- **Original Size per Token**:
   - For an embedding dimension of `1024`:
-    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per token.
 
-- **Quantized Size with Nibble Packing**:
+- **Quantized Size with Nibble Packing per Token**:
   - Each 4-bit value (nibble) is packed two per byte:
-    - Size of int4 packed embedding = $\frac{1024}{2} = 512 \text{ bytes}$ per document.
+    - Size of int4 packed embedding = $\frac{1024}{2} = 512 \text{ bytes}$ per token.
 
-- **Additional Metadata**:
-  - Each document stores `min_val` and `max_val` for scaling back, each taking 4 bytes:
+- **Additional Metadata per Token**:
+  - Each token stores `min_val` and `max_val` for scaling back, each taking 4 bytes:
     - Additional metadata size = $2 \times 4 \text{ bytes} = 8 \text{ bytes}$.
 
-- **Total Storage per Document after Quantization**:
+- **Total Storage per Token after Quantization**:
   - Int4 packed data: 512 bytes
   - Metadata: 8 bytes
-  - Total = $512 + 8 = 520 \text{ bytes}$ per document.
+  - Total = $512 + 8 = 520 \text{ bytes}$ per token.
 
-- **Sieve in Numbers**:
-  - The storage reduction in terms of bytes for each embedding:
-    - Sieve = $4096 \text{ bytes (float32)} - 520 \text{ bytes (int4 + metadata)} = 3576 \text{ bytes saved per document}$.
+- **Sieve in Numbers for Document with 410 Tokens**:
+  - Total float32 size for document: $4096 \text{ bytes/token} \times 410 \text{ tokens} = 1679360 \text{ bytes}$.
+  - Total int4 size for document: $520 \text{ bytes/token} \times 410 \text{ tokens} = 213200 \text{ bytes}$.
+  - Sieve = $1679360 \text{ bytes (float32)} - 213200 \text{ bytes (int4 + metadata)} = 1466160 \text{ bytes saved per document}$.
 
-Therefore, the storage saved by using 4-bit quantization with nibble packing is **3576 bytes** per document. 
+Therefore, the storage saved by using 4-bit quantization with nibble packing for a document with 410 tokens is **1,466,160 bytes**.
 
 ---
 
 #### **Int4Global Quantization**
 
-- **Original Size**:
+- **Original Size per Token**:
   - For an embedding dimension of `1024`:
-    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per token.
 
-- **Quantized Size with Nibble Packing**:
+- **Quantized Size with Nibble Packing per Token**:
   - Each 4-bit value (nibble) is packed two per byte:
-    - Size of int4 packed embedding = $\frac{1024}{2} = 512 \text{ bytes}$ per document.
+    - Size of int4 packed embedding = $\frac{1024}{2} = 512 \text{ bytes}$ per token.
 
-- **Additional Metadata**:
-  - No per-document `min_val` and `max_val` are stored since we use a single `global_limit` for all documents:
-    - Additional metadata size = $0 \text{ bytes}$ per document (global limit is in config).
+- **Additional Metadata per Token**:
+  - No per-token `min_val` and `max_val` are stored since we use a single `global_limit` for all tokens:
+    - Additional metadata size = $0 \text{ bytes}$ per token (global limit is in config).
 
-- **Total Storage per Document after Quantization**:
+- **Total Storage per Token after Quantization**:
   - Int4 packed data: 512 bytes
   - Metadata: 0 bytes (since global limit applies to all)
-  - Total = $512 \text{ bytes}$ per document.
+  - Total = $512 \text{ bytes}$ per token.
 
-- **Sieve in Numbers**:
-  - The storage reduction in terms of bytes for each embedding:
-    - Sieve = $4096 \text{ bytes (float32)} - 512 \text{ bytes (int4)} = 3584 \text{ bytes saved per document}$.
+- **Sieve in Numbers for Document with 410 Tokens**:
+  - Total float32 size for document: $4096 \text{ bytes/token} \times 410 \text{ tokens} = 1679360 \text{ bytes}$.
+  - Total int4Global size for document: $512 \text{ bytes/token} \times 410 \text{ tokens} = 209920 \text{ bytes}$.
+  - Sieve = $1679360 \text{ bytes (float32)} - 209920 \text{ bytes (int4)} = 1469440 \text{ bytes saved per document}$.
 
-Therefore, the storage saved by using 4-bit quantization with a global limit (Int4Global) is **3584 bytes** per document. 
+Therefore, the storage saved by using 4-bit quantization with a global limit for a document with 410 tokens is **1,469,440 bytes**.
 
 ---
 
@@ -98,142 +115,146 @@ Therefore, the storage saved by using 4-bit quantization with a global limit (In
 
 - **Int4 Quantization vs. Int4Global Quantization:**
   - **Storage Efficiency:** 
-    - **Int4:** Saves **3576 bytes** with additional metadata for precision.
-    - **Int4Global:** Saves **3584 bytes** with no per-document metadata, maximizing storage efficiency but at a potential loss of precision.
+    - **Int4:** Saves **1,466,160 bytes** with additional metadata for precision.
+    - **Int4Global:** Saves **1,469,440 bytes** with no per-token metadata, maximizing storage efficiency but at a potential loss of precision.
   - **Precision:**
-    - **Int4:** Offers better precision through document-specific scaling.
-    - **Int4Global:** Uses a uniform scale, which might not be ideal for all documents, possibly leading to precision loss.
+    - **Int4:** Offers better precision through token-specific scaling.
+    - **Int4Global:** Uses a uniform scale, which might not be ideal for all tokens, possibly leading to precision loss.
   - **Use Case:**
-    - **Int4:** Suited for applications where individual document precision is critical.
+    - **Int4:** Suited for applications where individual token precision is critical.
     - **Int4Global:** Ideal for scenarios where uniform scaling is acceptable, and storage is a priority.
 
 ---
 
 #### **Int8 Quantization (VectorDBInt8)**
 
-- **Original Size**:
+- **Original Size per Token**:
   - For an embedding dimension of `1024`:
-    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per token.
 
-- **Quantized Size**:
+- **Quantized Size per Token**:
   - Each 8-bit value is stored individually:
-    - Size of int8 packed embedding = $1024 \times 1 \text{ byte} = 1024 \text{ bytes}$ per document.
+    - Size of int8 packed embedding = $1024 \times 1 \text{ byte} = 1024 \text{ bytes}$ per token.
 
-- **Additional Metadata**:
-  - Each document stores `min_val` and `max_val` for scaling, each taking 4 bytes:
+- **Additional Metadata per Token**:
+  - Each token stores `min_val` and `max_val` for scaling, each taking 4 bytes:
     - Additional metadata size = $2 \times 4 \text{ bytes} = 8 \text{ bytes}$.
 
-- **Total Storage per Document after Quantization**:
+- **Total Storage per Token after Quantization**:
   - Int8 data: 1024 bytes
   - Metadata: 8 bytes
-  - Total = $1024 + 8 = 1032 \text{ bytes}$ per document.
+  - Total = $1024 + 8 = 1032 \text{ bytes}$ per token.
 
-- **Sieve in Numbers**:
-  - The storage reduction in terms of bytes for each embedding:
-    - Sieve = $4096 \text{ bytes (float32)} - 1032 \text{ bytes (int8 + metadata)} = 3064 \text{ bytes saved per document}$.
+- **Sieve in Numbers for Document with 410 Tokens**:
+  - Total float32 size for document: $4096 \text{ bytes/token} \times 410 \text{ tokens} = 1679360 \text{ bytes}$.
+  - Total int8 size for document: $1032 \text{ bytes/token} \times 410 \text{ tokens} = 424240 \text{ bytes}$.
+  - Sieve = $1679360 \text{ bytes (float32)} - 424240 \text{ bytes (int8 + metadata)} = 1255120 \text{ bytes saved per document}$.
 
-Therefore, the storage saved by using 8-bit quantization with per-document scaling is **3064 bytes** per document. 
+Therefore, the storage saved by using 8-bit quantization with per-token scaling for a document with 410 tokens is **1,255,120 bytes**.
 
 ---
 
 #### **Int8Global Quantization (VectorDBInt8Global)**
 
-- **Original Size**:
+- **Original Size per Token**:
   - For an embedding dimension of `1024`:
-    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per token.
 
-- **Quantized Size**:
+- **Quantized Size per Token**:
   - Each 8-bit value is stored individually:
-    - Size of int8 packed embedding = $1024 \times 1 \text{ byte} = 1024 \text{ bytes}$ per document.
+    - Size of int8 packed embedding = $1024 \times 1 \text{ byte} = 1024 \text{ bytes}$ per token.
 
-- **Additional Metadata**:
-  - No per-document `min_val` and `max_val` are stored since we use a single `global_limit` for all documents:
-    - Additional metadata size = $0 \text{ bytes}$ per document (global limit is in config).
+- **Additional Metadata per Token**:
+  - No per-token `min_val` and `max_val` are stored since we use a single `global_limit` for all tokens:
+    - Additional metadata size = $0 \text{ bytes}$ per token (global limit is in config).
 
-- **Total Storage per Document after Quantization**:
+- **Total Storage per Token after Quantization**:
   - Int8 data: 1024 bytes
   - Metadata: 0 bytes (since global limit applies to all)
-  - Total = $1024 \text{ bytes}$ per document.
+  - Total = $1024 \text{ bytes}$ per token.
 
-- **Sieve in Numbers**:
-  - The storage reduction in terms of bytes for each embedding:
-    - Sieve = $4096 \text{ bytes (float32)} - 1024 \text{ bytes (int8)} = 3072 \text{ bytes saved per document}$.
+- **Sieve in Numbers for Document with 410 Tokens**:
+  - Total float32 size for document: $4096 \text{ bytes/token} \times 410 \text{ tokens} = 1679360 \text{ bytes}$.
+  - Total int8Global size for document: $1024 \text{ bytes/token} \times 410 \text{ tokens} = 419840 \text{ bytes}$.
+  - Sieve = $1679360 \text{ bytes (float32)} - 419840 \text{ bytes (int8)} = 1259520 \text{ bytes saved per document}$.
 
-Therefore, the storage saved by using 8-bit quantization with a global limit is **3072 bytes** per document. 
+Therefore, the storage saved by using 8-bit quantization with a global limit for a document with 410 tokens is **1,259,520 bytes**.
 
 ### **Comparison**
 
 - **Int8 Quantization vs. Int8Global Quantization:**
   - **Storage Efficiency:** 
-    - **Int8:** Saves **3064 bytes** with per-document scaling for better precision.
-    - **Int8Global:** Saves **3072 bytes** without per-document metadata, offering slightly more storage efficiency.
+    - **Int8:** Saves **1,255,120 bytes** with per-token scaling for better precision.
+    - **Int8Global:** Saves **1,259,520 bytes** without per-token metadata, offering slightly more storage efficiency.
   - **Precision:**
-    - **Int8:** Maintains document-specific scaling, preserving accuracy for varied datasets.
+    - **Int8:** Maintains token-specific scaling, preserving accuracy for varied datasets.
     - **Int8Global:** Applies a uniform global limit, potentially sacrificing precision for consistency.
   - **Use Case:**
     - **Int8:** Recommended when maintaining high precision across diverse datasets is vital.
-    - **Int8Global:** Useful when storage savings are prioritized over individual document precision.
+    - **Int8Global:** Useful when storage savings are prioritized over individual token precision.
 
 ---
 
 #### **Int16 Quantization (VectorDBInt16)**
 
-- **Original Size**:
+- **Original Size per Token**:
   - For an embedding dimension of `1024`:
-    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per token.
 
-- **Quantized Size**:
+- **Quantized Size per Token**:
   - Each 16-bit value is stored individually:
-    - Size of int16 packed embedding = $1024 \times 2 \text{ bytes} = 2048 \text{ bytes}$ per document.
+    - Size of int16 packed embedding = $1024 \times 2 \text{ bytes} = 2048 \text{ bytes}$ per token.
 
-- **Additional Metadata**:
-  - Each document stores `min_val` and `max_val` for scaling, each taking 4 bytes:
+- **Additional Metadata per Token**:
+  - Each token stores `min_val` and `max_val` for scaling, each taking 4 bytes:
     - Additional metadata size = $2 \times 4 \text{ bytes} = 8 \text{ bytes}$.
 
-- **Total Storage per Document after Quantization**:
+- **Total Storage per Token after Quantization**:
   - Int16 data: 2048 bytes
   - Metadata: 8 bytes
-  - Total = $2048 + 8 = 2056 \text{ bytes}$ per document.
+  - Total = $2048 + 8 = 2056 \text{ bytes}$ per token.
 
-- **Sieve in Numbers**:
-  - The storage reduction in terms of bytes for each embedding:
-    - Sieve = $4096 \text{ bytes (float32)} - 2056 \text{ bytes (int16 + metadata)} = 2040 \text{ bytes saved per document}$.
+- **Sieve in Numbers for Document with 410 Tokens**:
+  - Total float32 size for document: $4096 \text{ bytes/token} \times 410 \text{ tokens} = 1679360 \text{ bytes}$.
+  - Total int16 size for document: $2056 \text{ bytes/token} \times 410 \text{ tokens} = 848480 \text{ bytes}$.
+  - Sieve = $1679360 \text{ bytes (float32)} - 848480 \text{ bytes (int16 + metadata)} = 830880 \text{ bytes saved per document}$.
 
-Therefore, the storage saved by using 16-bit quantization with per-document scaling is **2040 bytes** per document. 
+Therefore, the storage saved by using 16-bit quantization with per-token scaling for a document with 410 tokens is **830,880 bytes**.
 
 ---
 
 #### **Int16Global Quantization (VectorDBInt16Global)**
 
-- **Original Size**:
+- **Original Size per Token**:
   - For an embedding dimension of `1024`:
-    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per document.
+    - Size of float32 embedding = $1024 \times 4 \text{ bytes} = 4096 \text{ bytes}$ per token.
 
-- **Quantized Size**:
+- **Quantized Size per Token**:
   - Each 16-bit value is stored individually:
-    - Size of int16 packed embedding = $1024 \times 2 \text{ bytes} = 2048 \text{ bytes}$ per document.
+    - Size of int16 packed embedding = $1024 \times 2 \text{ bytes} = 2048 \text{ bytes}$ per token.
 
-- **Additional Metadata**:
-  - No per-document `min_val` and `max_val` are stored since we use a single `global_limit` for all documents:
-    - Additional metadata size = $0 \text{ bytes}$ per document (global limit is in config).
+- **Additional Metadata per Token**:
+  - No per-token `min_val` and `max_val` are stored since we use a single `global_limit` for all tokens:
+    - Additional metadata size = $0 \text{ bytes}$ per token (global limit is in config).
 
-- **Total Storage per Document after Quantization**:
+- **Total Storage per Token after Quantization**:
   - Int16 data: 2048 bytes
   - Metadata: 0 bytes (since global limit applies to all)
-  - Total = $2048 \text{ bytes}$ per document.
+  - Total = $2048 \text{ bytes}$ per token.
 
-- **Sieve in Numbers**:
-  - The storage reduction in terms of bytes for each embedding:
-    - Sieve = $4096 \text{ bytes (float32)} - 2048 \text{ bytes (int16)} = 2048 \text{ bytes saved per document}$.
+- **Sieve in Numbers for Document with 410 Tokens**:
+  - Total float32 size for document: $4096 \text{ bytes/token} \times 410 \text{ tokens} = 1679360 \text{ bytes}$.
+  - Total int16Global size for document: $2048 \text{ bytes/token} \times 410 \text{ tokens} = 839680 \text{ bytes}$.
+  - Sieve = $1679360 \text{ bytes (float32)} - 839680 \text{ bytes (int16)} = 839680 \text{ bytes saved per document}$.
 
-Therefore, the storage saved by using 16-bit quantization with a global limit is **2048 bytes** per document. 
+Therefore, the storage saved by using 16-bit quantization with a global limit for a document with 410 tokens is **839,680 bytes**.
 
 ### **Comparison**
 
 - **Int16 Quantization vs. Int16Global Quantization:**
   - **Storage Efficiency:** 
-    - **Int16:** Saves **2040 bytes** with document-specific scaling for high precision.
-    - **Int16Global:** Saves **2048 bytes** by eliminating per-document metadata, offering maximum storage efficiency at the cost of uniform scaling.
+    - **Int16:** Saves **830,880 bytes** with token-specific scaling for high precision.
+    - **Int16Global:** Saves **839,680 bytes** by eliminating per-token metadata, offering maximum storage efficiency at the cost of uniform scaling.
   - **Precision:**
     - **Int16:** Provides high precision with individual scaling, suitable for applications where accuracy is paramount.
     - **Int16Global:** Applies a global scaling, which might not accommodate all data distributions, potentially affecting precision.
