@@ -960,10 +960,400 @@ Ensure Python is installed with libraries like `numpy`, `pandas`, `faiss`, `requ
 
 Run the main script using the following command:
 
+Installation and Setup Instructions
+
+Follow these steps to set up and run the project on your machine.
+
+Prerequisites
+	•	Python 3.8+
+Ensure you have Python 3.8 or later installed. You can check your version with:
+
+```bash
+python --version
+```
+
+	•	Ollama
+Ollama is required to run the embedding service.
+	1.	Download Ollama: Visit the Ollama Download Page and follow the installation instructions for your operating system.
+	2.	Run Ollama: Once installed, start the Ollama server if it does not automatically start. Check the documentation for your platform.
+
+
+Installation Steps
+	1.	Install Python Dependencies
+Open your terminal, navigate to the project directory, and run:
+
 ```bash
 pip install -r dependencies.txt
+```
 
 
+2.	Pull the Embedding Model with Ollama
+Use the following command to download the embedding model:
+
+```bash
+ollama pull snowflake-arctic-embed2
+```
+
+	3.	Run the Project
+Execute the main script to start processing documents and generating results:
+
+```bash
 python main.py
 ```
 
+```bash
+Running main.py (all local + global workflows)...
+2025-02-12 15:22:21,660 [INFO] Removing existing directory: img
+2025-02-12 15:22:21,677 [INFO] Creating new directory: img
+2025-02-12 15:22:21,683 [INFO] Loaded 1000 documents from Generated_AI_Examples.csv.
+2025-02-12 15:22:21,683 [INFO]
+Starting Int4 Method...
+2025-02-12 15:22:21,683 [INFO] === Single-Stage Int4 (Local) ===
+2025-02-12 15:22:21,683 [INFO] Removing existing directory: ./db_int4
+2025-02-12 15:22:21,696 [INFO] New FAISS index created with embedding dimension 1024.
+2025-02-12 15:22:21,711 [INFO] Adding documents to Int4 DB...
+Indexing docs (Int4): 100%|████████████████████████████████████████████████████████████| 1000/1000 [01:04<00:00, 15.46it/s]
+2025-02-12 15:23:26,415 [INFO] FAISS index saved to disk.
+2025-02-12 15:23:26,829 [INFO] Search Results (Float32 vs. Int4):
+2025-02-12 15:23:26,829 [INFO] QUERY:
+2025-02-12 15:23:26,829 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:23:26,829 [INFO]
+Comparison of Scores (Float32 vs. Int4):
+2025-02-12 15:23:26,829 [INFO] Doc ID: 548, Float32 Score: 0.72592282, Int4 Score: 0.73232877, Difference: 0.00640595, Difference%: 0.8825%
+2025-02-12 15:23:26,829 [INFO] Doc ID: 510, Float32 Score: 0.71380323, Int4 Score: 0.71634406, Difference: 0.00254083, Difference%: 0.3560%
+2025-02-12 15:23:26,829 [INFO] Doc ID: 851, Float32 Score: 0.71336526, Int4 Score: 0.71275973, Difference: 0.00060552, Difference%: 0.0849%
+2025-02-12 15:23:26,829 [WARNING] Document IDs do not match: Float32 Doc ID=659 vs Quantized Doc ID=121.
+2025-02-12 15:23:26,829 [WARNING] Document IDs do not match: Float32 Doc ID=327 vs Quantized Doc ID=659.
+2025-02-12 15:23:26,829 [WARNING] Document IDs do not match: Float32 Doc ID=636 vs Quantized Doc ID=327.
+2025-02-12 15:23:26,829 [WARNING] Document IDs do not match: Float32 Doc ID=871 vs Quantized Doc ID=636.
+2025-02-12 15:23:26,829 [WARNING] Document IDs do not match: Float32 Doc ID=904 vs Quantized Doc ID=242.
+2025-02-12 15:23:26,829 [WARNING] Document IDs do not match: Float32 Doc ID=242 vs Quantized Doc ID=904.
+2025-02-12 15:23:26,829 [WARNING] Document IDs do not match: Float32 Doc ID=121 vs Quantized Doc ID=871.
+2025-02-12 15:23:26,833 [INFO]
+=== Summary of Percentage Differences for Int4 ===
+2025-02-12 15:23:26,833 [INFO] Average Percentage Difference: 0.4411%
+2025-02-12 15:23:26,833 [INFO] Median Percentage Difference: 0.3560%
+2025-02-12 15:23:26,833 [INFO] Maximum Percentage Difference: 0.8825%
+2025-02-12 15:23:26,833 [INFO] Minimum Percentage Difference: 0.0849%
+2025-02-12 15:23:27,247 [INFO] QUERY:
+2025-02-12 15:23:27,247 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:23:27,247 [INFO]
+=== Detailed Score Comparison: Float32 vs. Int4 Side By Side ===
+2025-02-12 15:23:27,247 [INFO] Doc ID=548, float32=0.72592282, Int4 Side By Side=0.73232877, diff=0.00640595, diff%=0.8825%, doc='AI is revolutionizing human-computer interaction....'
+2025-02-12 15:23:27,247 [INFO] Doc ID=510, float32=0.71380323, Int4 Side By Side=0.71634406, diff=0.00254083, diff%=0.3560%, doc='AI is transforming smart city planning....'
+2025-02-12 15:23:27,247 [INFO] Doc ID=851, float32=0.71336526, Int4 Side By Side=0.71275973, diff=0.00060552, diff%=0.0849%, doc='AI is transforming supply chain optimization....'
+2025-02-12 15:23:27,247 [INFO] Doc ID=659, float32=0.70634353, Int4 Side By Side=0.70370036, diff=0.00264317, diff%=0.3742%, doc='AI in sports is transforming manufacturing processes....'
+2025-02-12 15:23:27,247 [INFO] Doc ID=327, float32=0.70600551, Int4 Side By Side=0.70084161, diff=0.00516391, diff%=0.7314%, doc='AI is transforming traffic management....'
+2025-02-12 15:23:27,249 [INFO] Doc ID=636, float32=0.69883746, Int4 Side By Side=0.69900727, diff=0.00016981, diff%=0.0243%, doc='AI simplifies energy efficiency....'
+2025-02-12 15:23:27,249 [INFO] Doc ID=871, float32=0.69642389, Int4 Side By Side=0.68651408, diff=0.00990981, diff%=1.4230%, doc='Smart cities is transforming artificial intelligence researc...'
+2025-02-12 15:23:27,249 [INFO] Doc ID=904, float32=0.69402176, Int4 Side By Side=0.68816990, diff=0.00585186, diff%=0.8432%, doc='AI improves artificial intelligence research....'
+2025-02-12 15:23:27,249 [INFO] Doc ID=242, float32=0.69000554, Int4 Side By Side=0.69372189, diff=0.00371635, diff%=0.5386%, doc='AI is transforming cybersecurity systems....'
+2025-02-12 15:23:27,249 [INFO] Doc ID=121, float32=0.68942094, Int4 Side By Side=0.70454550, diff=0.01512456, diff%=2.1938%, doc='Generative AI aids in manufacturing processes....'
+2025-02-12 15:23:27,249 [INFO]
+=== Summary of Percentage Differences for Int4 Side By Side ===
+2025-02-12 15:23:27,249 [INFO] Average Percentage Difference: 0.7452%
+2025-02-12 15:23:27,249 [INFO] Median Percentage Difference: 0.6350%
+2025-02-12 15:23:27,249 [INFO] Maximum Percentage Difference: 2.1938%
+2025-02-12 15:23:27,249 [INFO] Minimum Percentage Difference: 0.0243%
+2025-02-12 15:23:27,453 [INFO] Results saved for Int4 to results.csv
+2025-02-12 15:23:27,488 [INFO] Completed Int4 Method.
+2025-02-12 15:23:27,492 [INFO]
+Starting Int4Global Method...
+2025-02-12 15:23:27,492 [INFO] === Single-Stage Int4 (Global) ===
+2025-02-12 15:23:27,492 [INFO] Removing existing directory: ./db_int4_global
+2025-02-12 15:23:27,496 [INFO] New FAISS index created with embedding dimension 1024.
+2025-02-12 15:23:27,502 [INFO] Adding documents to Int4Global DB...
+Indexing docs (Global Int4): 100%|█████████████████████████████████████████████████████| 1000/1000 [01:01<00:00, 16.17it/s]
+2025-02-12 15:24:29,328 [INFO] FAISS index saved to disk.
+2025-02-12 15:24:29,634 [INFO] Search Results (Float32 vs. Int4Global):
+2025-02-12 15:24:29,634 [INFO] QUERY:
+2025-02-12 15:24:29,634 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:24:29,634 [INFO]
+Comparison of Scores (Float32 vs. Int4Global):
+2025-02-12 15:24:29,634 [WARNING] Document IDs do not match: Float32 Doc ID=548 vs Quantized Doc ID=695.
+2025-02-12 15:24:29,634 [WARNING] Document IDs do not match: Float32 Doc ID=510 vs Quantized Doc ID=919.
+2025-02-12 15:24:29,634 [WARNING] Document IDs do not match: Float32 Doc ID=851 vs Quantized Doc ID=659.
+2025-02-12 15:24:29,634 [WARNING] Document IDs do not match: Float32 Doc ID=659 vs Quantized Doc ID=954.
+2025-02-12 15:24:29,634 [WARNING] Document IDs do not match: Float32 Doc ID=327 vs Quantized Doc ID=764.
+2025-02-12 15:24:29,635 [WARNING] Document IDs do not match: Float32 Doc ID=636 vs Quantized Doc ID=121.
+2025-02-12 15:24:29,635 [WARNING] Document IDs do not match: Float32 Doc ID=871 vs Quantized Doc ID=242.
+2025-02-12 15:24:29,635 [WARNING] Document IDs do not match: Float32 Doc ID=904 vs Quantized Doc ID=548.
+2025-02-12 15:24:29,635 [WARNING] Document IDs do not match: Float32 Doc ID=242 vs Quantized Doc ID=961.
+2025-02-12 15:24:29,635 [WARNING] Document IDs do not match: Float32 Doc ID=121 vs Quantized Doc ID=5.
+2025-02-12 15:24:29,635 [INFO] No matching documents to compare.
+2025-02-12 15:24:29,635 [INFO] QUERY:
+2025-02-12 15:24:29,635 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:24:29,635 [INFO]
+=== Detailed Score Comparison: Float32 vs. Int4Global Side By Side ===
+2025-02-12 15:24:29,635 [INFO] Doc ID=695, float32=None, Int4Global Side By Side=1.17340481, diff%='N/A', doc='AI in education is revolutionizing manufacturing processes....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=919, float32=None, Int4Global Side By Side=1.12119889, diff%='N/A', doc='AI in the legal field simplifies manufacturing processes....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=954, float32=None, Int4Global Side By Side=1.09432721, diff%='N/A', doc='AI in sports ensures manufacturing processes....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=764, float32=None, Int4Global Side By Side=1.08712840, diff%='N/A', doc='AI in agriculture is transforming education personalization....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=961, float32=None, Int4Global Side By Side=1.04494882, diff%='N/A', doc='AI in sports streamlines manufacturing processes....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=5, float32=None, Int4Global Side By Side=1.03871179, diff%='N/A', doc='AI in agriculture reduces costs in artificial intelligence r...'
+2025-02-12 15:24:29,635 [INFO] Doc ID=548, float32=0.72592282, Int4Global Side By Side=1.04641032, diff=0.32048750, diff%=44.1490%, doc='AI is revolutionizing human-computer interaction....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=510, float32=0.71380323, Int4Global Side By Side=None, diff%='N/A', doc='AI is transforming smart city planning....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=851, float32=0.71336526, Int4Global Side By Side=None, diff%='N/A', doc='AI is transforming supply chain optimization....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=659, float32=0.70634353, Int4Global Side By Side=1.11379147, diff=0.40744793, diff%=57.6841%, doc='AI in sports is transforming manufacturing processes....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=327, float32=0.70600551, Int4Global Side By Side=None, diff%='N/A', doc='AI is transforming traffic management....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=636, float32=0.69883746, Int4Global Side By Side=None, diff%='N/A', doc='AI simplifies energy efficiency....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=871, float32=0.69642389, Int4Global Side By Side=None, diff%='N/A', doc='Smart cities is transforming artificial intelligence researc...'
+2025-02-12 15:24:29,635 [INFO] Doc ID=904, float32=0.69402176, Int4Global Side By Side=None, diff%='N/A', doc='AI improves artificial intelligence research....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=242, float32=0.69000554, Int4Global Side By Side=1.06144822, diff=0.37144268, diff%=53.8318%, doc='AI is transforming cybersecurity systems....'
+2025-02-12 15:24:29,635 [INFO] Doc ID=121, float32=0.68942094, Int4Global Side By Side=1.06685436, diff=0.37743342, diff%=54.7464%, doc='Generative AI aids in manufacturing processes....'
+2025-02-12 15:24:29,635 [INFO]
+=== Summary of Percentage Differences for Int4Global Side By Side ===
+2025-02-12 15:24:29,635 [INFO] Average Percentage Difference: 52.6028%
+2025-02-12 15:24:29,635 [INFO] Median Percentage Difference: 54.2891%
+2025-02-12 15:24:29,635 [INFO] Maximum Percentage Difference: 57.6841%
+2025-02-12 15:24:29,635 [INFO] Minimum Percentage Difference: 44.1490%
+2025-02-12 15:24:29,820 [INFO] Results saved for Int4Global to results.csv
+2025-02-12 15:24:29,826 [INFO] Completed Int4Global Method.
+2025-02-12 15:24:29,827 [INFO]
+Starting Int8 Method...
+2025-02-12 15:24:29,827 [INFO] === Single-Stage Int8 (Local) ===
+2025-02-12 15:24:29,827 [INFO] Removing existing directory: ./db_int8
+2025-02-12 15:24:29,830 [INFO] New FAISS index created with embedding dimension 1024.
+2025-02-12 15:24:29,834 [INFO] Adding documents to Int8 DB...
+Indexing docs (Int8): 100%|████████████████████████████████████████████████████████████| 1000/1000 [00:59<00:00, 16.80it/s]
+2025-02-12 15:25:29,343 [INFO] FAISS index saved to disk.
+2025-02-12 15:25:29,472 [INFO] Search Results (Float32 vs. Int8):
+2025-02-12 15:25:29,472 [INFO] QUERY:
+2025-02-12 15:25:29,472 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:25:29,472 [INFO]
+Comparison of Scores (Float32 vs. Int8):
+2025-02-12 15:25:29,472 [INFO] Doc ID: 548, Float32 Score: 0.72592282, Int8 Score: 0.71776712, Difference: 0.00815570, Difference%: 1.1235%
+2025-02-12 15:25:29,472 [WARNING] Document IDs do not match: Float32 Doc ID=510 vs Quantized Doc ID=851.
+2025-02-12 15:25:29,472 [WARNING] Document IDs do not match: Float32 Doc ID=851 vs Quantized Doc ID=510.
+2025-02-12 15:25:29,472 [INFO] Doc ID: 659, Float32 Score: 0.70634353, Int8 Score: 0.69845378, Difference: 0.00788975, Difference%: 1.1170%
+2025-02-12 15:25:29,472 [INFO] Doc ID: 327, Float32 Score: 0.70600551, Int8 Score: 0.69652700, Difference: 0.00947851, Difference%: 1.3426%
+2025-02-12 15:25:29,472 [INFO] Doc ID: 636, Float32 Score: 0.69883746, Int8 Score: 0.69014907, Difference: 0.00868839, Difference%: 1.2433%
+2025-02-12 15:25:29,472 [INFO] Doc ID: 871, Float32 Score: 0.69642389, Int8 Score: 0.68664753, Difference: 0.00977635, Difference%: 1.4038%
+2025-02-12 15:25:29,472 [INFO] Doc ID: 904, Float32 Score: 0.69402176, Int8 Score: 0.68413794, Difference: 0.00988382, Difference%: 1.4241%
+2025-02-12 15:25:29,472 [INFO] Doc ID: 242, Float32 Score: 0.69000554, Int8 Score: 0.68223262, Difference: 0.00777292, Difference%: 1.1265%
+2025-02-12 15:25:29,472 [INFO] Doc ID: 121, Float32 Score: 0.68942094, Int8 Score: 0.68127036, Difference: 0.00815058, Difference%: 1.1822%
+2025-02-12 15:25:29,473 [INFO]
+=== Summary of Percentage Differences for Int8 ===
+2025-02-12 15:25:29,473 [INFO] Average Percentage Difference: 1.2454%
+2025-02-12 15:25:29,473 [INFO] Median Percentage Difference: 1.2127%
+2025-02-12 15:25:29,473 [INFO] Maximum Percentage Difference: 1.4241%
+2025-02-12 15:25:29,473 [INFO] Minimum Percentage Difference: 1.1170%
+2025-02-12 15:25:29,658 [INFO] QUERY:
+2025-02-12 15:25:29,658 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:25:29,658 [INFO]
+=== Detailed Score Comparison: Float32 vs. Int8 Side By Side ===
+2025-02-12 15:25:29,658 [INFO] Doc ID=548, float32=0.72592282, Int8 Side By Side=0.71776712, diff=0.00815570, diff%=1.1235%, doc='AI is revolutionizing human-computer interaction....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=510, float32=0.71380323, Int8 Side By Side=0.70404428, diff=0.00975895, diff%=1.3672%, doc='AI is transforming smart city planning....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=851, float32=0.71336526, Int8 Side By Side=0.70461822, diff=0.00874704, diff%=1.2262%, doc='AI is transforming supply chain optimization....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=659, float32=0.70634353, Int8 Side By Side=0.69845378, diff=0.00788975, diff%=1.1170%, doc='AI in sports is transforming manufacturing processes....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=327, float32=0.70600551, Int8 Side By Side=0.69652700, diff=0.00947851, diff%=1.3426%, doc='AI is transforming traffic management....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=636, float32=0.69883746, Int8 Side By Side=0.69014907, diff=0.00868839, diff%=1.2433%, doc='AI simplifies energy efficiency....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=871, float32=0.69642389, Int8 Side By Side=0.68664753, diff=0.00977635, diff%=1.4038%, doc='Smart cities is transforming artificial intelligence researc...'
+2025-02-12 15:25:29,658 [INFO] Doc ID=904, float32=0.69402176, Int8 Side By Side=0.68413794, diff=0.00988382, diff%=1.4241%, doc='AI improves artificial intelligence research....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=242, float32=0.69000554, Int8 Side By Side=0.68223262, diff=0.00777292, diff%=1.1265%, doc='AI is transforming cybersecurity systems....'
+2025-02-12 15:25:29,658 [INFO] Doc ID=121, float32=0.68942094, Int8 Side By Side=0.68127036, diff=0.00815058, diff%=1.1822%, doc='Generative AI aids in manufacturing processes....'
+2025-02-12 15:25:29,658 [INFO]
+=== Summary of Percentage Differences for Int8 Side By Side ===
+2025-02-12 15:25:29,658 [INFO] Average Percentage Difference: 1.2556%
+2025-02-12 15:25:29,658 [INFO] Median Percentage Difference: 1.2347%
+2025-02-12 15:25:29,658 [INFO] Maximum Percentage Difference: 1.4241%
+2025-02-12 15:25:29,658 [INFO] Minimum Percentage Difference: 1.1170%
+2025-02-12 15:25:29,833 [INFO] Results saved for Int8 to results.csv
+2025-02-12 15:25:29,841 [INFO] Completed Int8 Method.
+2025-02-12 15:25:29,842 [INFO]
+Starting Int8Global Method...
+2025-02-12 15:25:29,842 [INFO] === Single-Stage Int8 (Global) ===
+2025-02-12 15:25:29,842 [INFO] Removing existing directory: ./db_int8_global
+2025-02-12 15:25:29,845 [INFO] New FAISS index created with embedding dimension 1024.
+2025-02-12 15:25:29,851 [INFO] Adding documents to Int8Global DB...
+2025-02-12 15:25:29,851 [INFO] QUERY:
+2025-02-12 15:25:29,851 [INFO] Artificial intelligence is transforming industries.
+Indexing docs (Global Int8): 100%|█████████████████████████████████████████████████████| 1000/1000 [01:03<00:00, 15.66it/s]
+2025-02-12 15:26:33,699 [INFO] FAISS index saved to disk.
+2025-02-12 15:26:33,837 [INFO] Search Results (Float32 vs. Int8Global):
+2025-02-12 15:26:33,837 [INFO] QUERY:
+2025-02-12 15:26:33,837 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:26:33,837 [INFO]
+Comparison of Scores (Float32 vs. Int8Global):
+2025-02-12 15:26:33,837 [INFO] Doc ID: 548, Float32 Score: 0.72592282, Int8Global Score: 0.72471464, Difference: 0.00120819, Difference%: 0.1664%
+2025-02-12 15:26:33,837 [INFO] Doc ID: 510, Float32 Score: 0.71380323, Int8Global Score: 0.71338582, Difference: 0.00041741, Difference%: 0.0585%
+2025-02-12 15:26:33,837 [INFO] Doc ID: 851, Float32 Score: 0.71336526, Int8Global Score: 0.71336192, Difference: 0.00000334, Difference%: 0.0005%
+2025-02-12 15:26:33,837 [INFO] Doc ID: 659, Float32 Score: 0.70634353, Int8Global Score: 0.70639586, Difference: 0.00005233, Difference%: 0.0074%
+2025-02-12 15:26:33,837 [INFO] Doc ID: 327, Float32 Score: 0.70600551, Int8Global Score: 0.70610368, Difference: 0.00009817, Difference%: 0.0139%
+2025-02-12 15:26:33,837 [INFO] Doc ID: 636, Float32 Score: 0.69883746, Int8Global Score: 0.69882244, Difference: 0.00001502, Difference%: 0.0021%
+2025-02-12 15:26:33,837 [INFO] Doc ID: 871, Float32 Score: 0.69642389, Int8Global Score: 0.69583344, Difference: 0.00059044, Difference%: 0.0848%
+2025-02-12 15:26:33,838 [INFO] Doc ID: 904, Float32 Score: 0.69402176, Int8Global Score: 0.69423646, Difference: 0.00021470, Difference%: 0.0309%
+2025-02-12 15:26:33,838 [INFO] Doc ID: 242, Float32 Score: 0.69000554, Int8Global Score: 0.68931419, Difference: 0.00069135, Difference%: 0.1002%
+2025-02-12 15:26:33,838 [INFO] Doc ID: 121, Float32 Score: 0.68942094, Int8Global Score: 0.68929815, Difference: 0.00012279, Difference%: 0.0178%
+2025-02-12 15:26:33,838 [INFO]
+=== Summary of Percentage Differences for Int8Global ===
+2025-02-12 15:26:33,838 [INFO] Average Percentage Difference: 0.0483%
+2025-02-12 15:26:33,838 [INFO] Median Percentage Difference: 0.0244%
+2025-02-12 15:26:33,838 [INFO] Maximum Percentage Difference: 0.1664%
+2025-02-12 15:26:33,838 [INFO] Minimum Percentage Difference: 0.0005%
+2025-02-12 15:26:34,077 [INFO] QUERY:
+2025-02-12 15:26:34,077 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:26:34,077 [INFO]
+=== Detailed Score Comparison: Float32 vs. Int8Global Side By Side ===
+2025-02-12 15:26:34,077 [INFO] Doc ID=548, float32=0.72592282, Int8Global Side By Side=0.72471464, diff=0.00120819, diff%=0.1664%, doc='AI is revolutionizing human-computer interaction....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=510, float32=0.71380323, Int8Global Side By Side=0.71338582, diff=0.00041741, diff%=0.0585%, doc='AI is transforming smart city planning....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=851, float32=0.71336526, Int8Global Side By Side=0.71336192, diff=0.00000334, diff%=0.0005%, doc='AI is transforming supply chain optimization....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=659, float32=0.70634353, Int8Global Side By Side=0.70639586, diff=0.00005233, diff%=0.0074%, doc='AI in sports is transforming manufacturing processes....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=327, float32=0.70600551, Int8Global Side By Side=0.70610368, diff=0.00009817, diff%=0.0139%, doc='AI is transforming traffic management....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=636, float32=0.69883746, Int8Global Side By Side=0.69882244, diff=0.00001502, diff%=0.0021%, doc='AI simplifies energy efficiency....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=871, float32=0.69642389, Int8Global Side By Side=0.69583344, diff=0.00059044, diff%=0.0848%, doc='Smart cities is transforming artificial intelligence researc...'
+2025-02-12 15:26:34,077 [INFO] Doc ID=904, float32=0.69402176, Int8Global Side By Side=0.69423646, diff=0.00021470, diff%=0.0309%, doc='AI improves artificial intelligence research....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=242, float32=0.69000554, Int8Global Side By Side=0.68931419, diff=0.00069135, diff%=0.1002%, doc='AI is transforming cybersecurity systems....'
+2025-02-12 15:26:34,077 [INFO] Doc ID=121, float32=0.68942094, Int8Global Side By Side=0.68929815, diff=0.00012279, diff%=0.0178%, doc='Generative AI aids in manufacturing processes....'
+2025-02-12 15:26:34,077 [INFO]
+=== Summary of Percentage Differences for Int8Global Side By Side ===
+2025-02-12 15:26:34,077 [INFO] Average Percentage Difference: 0.0483%
+2025-02-12 15:26:34,078 [INFO] Median Percentage Difference: 0.0244%
+2025-02-12 15:26:34,078 [INFO] Maximum Percentage Difference: 0.1664%
+2025-02-12 15:26:34,078 [INFO] Minimum Percentage Difference: 0.0005%
+2025-02-12 15:26:34,250 [INFO] Results saved for Int8Global to results.csv
+2025-02-12 15:26:34,257 [INFO] Completed Int8Global Method.
+2025-02-12 15:26:34,260 [INFO]
+Starting Int16 Method...
+2025-02-12 15:26:34,260 [INFO] === Single-Stage Int16 (Local) ===
+2025-02-12 15:26:34,260 [INFO] Removing existing directory: ./db_int16
+2025-02-12 15:26:34,263 [INFO] New FAISS index created with embedding dimension 1024.
+2025-02-12 15:26:34,266 [INFO] Adding documents to Int16 DB...
+Indexing docs: 100%|███████████████████████████████████████████████████████████████████| 1000/1000 [00:58<00:00, 17.00it/s]
+2025-02-12 15:27:33,097 [INFO] FAISS index saved to disk.
+2025-02-12 15:27:33,261 [INFO] Search Results (Float32 vs. Int16):
+2025-02-12 15:27:33,261 [INFO] QUERY:
+2025-02-12 15:27:33,261 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:27:33,261 [INFO]
+Comparison of Scores (Float32 vs. Int16):
+2025-02-12 15:27:33,261 [INFO] Doc ID: 548, Float32 Score: 0.72592284, Int16 Score: 0.72589112, Difference: 0.00003172, Difference%: 0.0044%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 510, Float32 Score: 0.71380321, Int16 Score: 0.71376745, Difference: 0.00003576, Difference%: 0.0050%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 851, Float32 Score: 0.71336530, Int16 Score: 0.71333100, Difference: 0.00003430, Difference%: 0.0048%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 659, Float32 Score: 0.70634353, Int16 Score: 0.70631148, Difference: 0.00003204, Difference%: 0.0045%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 327, Float32 Score: 0.70600552, Int16 Score: 0.70596898, Difference: 0.00003654, Difference%: 0.0052%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 636, Float32 Score: 0.69883747, Int16 Score: 0.69880504, Difference: 0.00003243, Difference%: 0.0046%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 871, Float32 Score: 0.69642394, Int16 Score: 0.69638557, Difference: 0.00003837, Difference%: 0.0055%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 904, Float32 Score: 0.69402177, Int16 Score: 0.69398507, Difference: 0.00003670, Difference%: 0.0053%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 242, Float32 Score: 0.69000552, Int16 Score: 0.68997453, Difference: 0.00003099, Difference%: 0.0045%
+2025-02-12 15:27:33,261 [INFO] Doc ID: 121, Float32 Score: 0.68942097, Int16 Score: 0.68939019, Difference: 0.00003078, Difference%: 0.0045%
+2025-02-12 15:27:33,261 [INFO]
+=== Summary of Percentage Differences for Int16 ===
+2025-02-12 15:27:33,261 [INFO] Average Percentage Difference: 0.0048%
+2025-02-12 15:27:33,261 [INFO] Median Percentage Difference: 0.0047%
+2025-02-12 15:27:33,261 [INFO] Maximum Percentage Difference: 0.0055%
+2025-02-12 15:27:33,261 [INFO] Minimum Percentage Difference: 0.0044%
+2025-02-12 15:27:33,466 [INFO] QUERY:
+2025-02-12 15:27:33,466 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:27:33,466 [INFO]
+=== Detailed Score Comparison: Float32 vs. Int16 Side By Side ===
+2025-02-12 15:27:33,466 [INFO] Doc ID=548, float32=0.72592284, Int16 Side By Side=0.72589112, diff=0.00003172, diff%=0.0044%, doc='AI is revolutionizing human-computer interaction....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=510, float32=0.71380321, Int16 Side By Side=0.71376745, diff=0.00003576, diff%=0.0050%, doc='AI is transforming smart city planning....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=851, float32=0.71336530, Int16 Side By Side=0.71333100, diff=0.00003430, diff%=0.0048%, doc='AI is transforming supply chain optimization....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=659, float32=0.70634353, Int16 Side By Side=0.70631148, diff=0.00003204, diff%=0.0045%, doc='AI in sports is transforming manufacturing processes....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=327, float32=0.70600552, Int16 Side By Side=0.70596898, diff=0.00003654, diff%=0.0052%, doc='AI is transforming traffic management....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=636, float32=0.69883747, Int16 Side By Side=0.69880504, diff=0.00003243, diff%=0.0046%, doc='AI simplifies energy efficiency....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=871, float32=0.69642394, Int16 Side By Side=0.69638557, diff=0.00003837, diff%=0.0055%, doc='Smart cities is transforming artificial intelligence researc...'
+2025-02-12 15:27:33,466 [INFO] Doc ID=904, float32=0.69402177, Int16 Side By Side=0.69398507, diff=0.00003670, diff%=0.0053%, doc='AI improves artificial intelligence research....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=242, float32=0.69000552, Int16 Side By Side=0.68997453, diff=0.00003099, diff%=0.0045%, doc='AI is transforming cybersecurity systems....'
+2025-02-12 15:27:33,466 [INFO] Doc ID=121, float32=0.68942097, Int16 Side By Side=0.68939019, diff=0.00003078, diff%=0.0045%, doc='Generative AI aids in manufacturing processes....'
+2025-02-12 15:27:33,467 [INFO]
+=== Summary of Percentage Differences for Int16 Side By Side ===
+2025-02-12 15:27:33,467 [INFO] Average Percentage Difference: 0.0048%
+2025-02-12 15:27:33,467 [INFO] Median Percentage Difference: 0.0047%
+2025-02-12 15:27:33,467 [INFO] Maximum Percentage Difference: 0.0055%
+2025-02-12 15:27:33,467 [INFO] Minimum Percentage Difference: 0.0044%
+2025-02-12 15:27:33,639 [INFO] Results saved for Int16 to results.csv
+2025-02-12 15:27:33,645 [INFO] Completed Int16 Method.
+2025-02-12 15:27:33,647 [INFO]
+Starting Int16Global Method...
+2025-02-12 15:27:33,647 [INFO] === Single-Stage Int16 (Global) ===
+2025-02-12 15:27:33,647 [INFO] Removing existing directory: ./db_int16_global
+2025-02-12 15:27:33,650 [INFO] New FAISS index created with embedding dimension 1024.
+2025-02-12 15:27:33,653 [INFO] Adding documents to Int16Global DB...
+Indexing docs (Global Int16): 100%|████████████████████████████████████████████████████| 1000/1000 [01:03<00:00, 15.63it/s]
+2025-02-12 15:28:37,621 [INFO] FAISS index saved to disk.
+2025-02-12 15:28:37,798 [INFO] Search Results (Float32 vs. Int16Global):
+2025-02-12 15:28:37,798 [INFO] QUERY:
+2025-02-12 15:28:37,798 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:28:37,798 [INFO]
+Comparison of Scores (Float32 vs. Int16Global):
+2025-02-12 15:28:37,798 [INFO] Doc ID: 548, Float32 Score: 0.72592282, Int16Global Score: 0.72593093, Difference: 0.00000811, Difference%: 0.0011%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 510, Float32 Score: 0.71380323, Int16Global Score: 0.71379697, Difference: 0.00000626, Difference%: 0.0009%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 851, Float32 Score: 0.71336526, Int16Global Score: 0.71337450, Difference: 0.00000924, Difference%: 0.0013%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 659, Float32 Score: 0.70634353, Int16Global Score: 0.70635855, Difference: 0.00001502, Difference%: 0.0021%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 327, Float32 Score: 0.70600551, Int16Global Score: 0.70599443, Difference: 0.00001109, Difference%: 0.0016%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 636, Float32 Score: 0.69883746, Int16Global Score: 0.69882941, Difference: 0.00000805, Difference%: 0.0012%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 871, Float32 Score: 0.69642389, Int16Global Score: 0.69642699, Difference: 0.00000310, Difference%: 0.0004%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 904, Float32 Score: 0.69402176, Int16Global Score: 0.69403225, Difference: 0.00001049, Difference%: 0.0015%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 242, Float32 Score: 0.69000554, Int16Global Score: 0.69000673, Difference: 0.00000119, Difference%: 0.0002%
+2025-02-12 15:28:37,798 [INFO] Doc ID: 121, Float32 Score: 0.68942094, Int16Global Score: 0.68942606, Difference: 0.00000513, Difference%: 0.0007%
+2025-02-12 15:28:37,800 [INFO]
+=== Summary of Percentage Differences for Int16Global ===
+2025-02-12 15:28:37,800 [INFO] Average Percentage Difference: 0.0011%
+2025-02-12 15:28:37,800 [INFO] Median Percentage Difference: 0.0011%
+2025-02-12 15:28:37,800 [INFO] Maximum Percentage Difference: 0.0021%
+2025-02-12 15:28:37,800 [INFO] Minimum Percentage Difference: 0.0002%
+2025-02-12 15:28:38,039 [INFO] QUERY:
+2025-02-12 15:28:38,040 [INFO] Artificial intelligence is transforming industries.
+2025-02-12 15:28:38,040 [INFO]
+=== Detailed Score Comparison: Float32 vs. Int16Global Side By Side ===
+2025-02-12 15:28:38,040 [INFO] Doc ID=548, float32=0.72592282, Int16Global Side By Side=0.72593093, diff=0.00000811, diff%=0.0011%, doc='AI is revolutionizing human-computer interaction....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=510, float32=0.71380323, Int16Global Side By Side=0.71379697, diff=0.00000626, diff%=0.0009%, doc='AI is transforming smart city planning....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=851, float32=0.71336526, Int16Global Side By Side=0.71337450, diff=0.00000924, diff%=0.0013%, doc='AI is transforming supply chain optimization....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=659, float32=0.70634353, Int16Global Side By Side=0.70635855, diff=0.00001502, diff%=0.0021%, doc='AI in sports is transforming manufacturing processes....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=327, float32=0.70600551, Int16Global Side By Side=0.70599443, diff=0.00001109, diff%=0.0016%, doc='AI is transforming traffic management....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=636, float32=0.69883746, Int16Global Side By Side=0.69882941, diff=0.00000805, diff%=0.0012%, doc='AI simplifies energy efficiency....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=871, float32=0.69642389, Int16Global Side By Side=0.69642699, diff=0.00000310, diff%=0.0004%, doc='Smart cities is transforming artificial intelligence researc...'
+2025-02-12 15:28:38,040 [INFO] Doc ID=904, float32=0.69402176, Int16Global Side By Side=0.69403225, diff=0.00001049, diff%=0.0015%, doc='AI improves artificial intelligence research....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=242, float32=0.69000554, Int16Global Side By Side=0.69000673, diff=0.00000119, diff%=0.0002%, doc='AI is transforming cybersecurity systems....'
+2025-02-12 15:28:38,040 [INFO] Doc ID=121, float32=0.68942094, Int16Global Side By Side=0.68942606, diff=0.00000513, diff%=0.0007%, doc='Generative AI aids in manufacturing processes....'
+2025-02-12 15:28:38,040 [INFO]
+=== Summary of Percentage Differences for Int16Global Side By Side ===
+2025-02-12 15:28:38,040 [INFO] Average Percentage Difference: 0.0011%
+2025-02-12 15:28:38,040 [INFO] Median Percentage Difference: 0.0011%
+2025-02-12 15:28:38,040 [INFO] Maximum Percentage Difference: 0.0021%
+2025-02-12 15:28:38,040 [INFO] Minimum Percentage Difference: 0.0002%
+2025-02-12 15:28:38,219 [INFO] Results saved for Int16Global to results.csv
+2025-02-12 15:28:38,228 [INFO] Completed Int16Global Method.
+./bld.bash  34.06s user 8.91s system 11% cpu 6:18.53 total
+⏳ Command took: 378608 ms
+(base)
+VectorRAGQuantization on  main [✘!] via 🐍 v3.10.10 on ☁️  constantine@topinvestor.app took 6m18s
+❯
+```
+
+Below is a summary comparison of the quantization methods based on your run logs:
+
+Int16 Quantization
+	•	Local Int16:
+	•	Average Error: ~0.0048%
+	•	Observation: The per‐document (local) int16 quantization introduces an extremely small error (about 0.005%), meaning the quantized embeddings are almost identical to the original float32 ones.
+	•	Global Int16:
+	•	Average Error: ~0.0011%
+	•	Observation: Using a single global clipping limit for int16 further reduces the error (to about 0.001%), yielding even closer approximations of the original embeddings.
+
+Int8 Quantization
+	•	Local Int8:
+	•	Average Error: ~1.245%
+	•	Observation: With per‐document int8 quantization, the error is noticeably higher (around 1.2%) compared to int16, though still moderate.
+	•	Additional Note: There are some warnings about mismatched document IDs during the side-by-side comparisons.
+	•	Global Int8:
+	•	Average Error: ~0.048%
+	•	Observation: The global int8 method dramatically reduces the error (down to ~0.05%), meaning that a single clipping limit works much better for int8 than quantizing each document separately.
+
+Int4 Quantization
+	•	Local Int4:
+	•	Average Error: ~0.441% (with a range roughly from 0.085% to 1.42% in some cases)
+	•	Observation: The local int4 quantization shows a moderate error—higher than int16 but lower than the local int8 error.
+	•	Global Int4:
+	•	Average Error: ~52.6% (with warnings about document ID mismatches)
+	•	Observation: The global int4 method is not working as intended. The side-by-side comparison shows very large errors (average differences exceeding 50%) and mismatches in document IDs. This suggests that the global int4 quantization implementation is problematic (or the unpacking/scaling is off), resulting in dequantized embeddings that are far from the original float32 values.
+
+
+Overall Comparison
+	•	Int16 (both local and global) yields the best fidelity—with errors in the 0.001–0.005% range.
+	•	Int8 global significantly improves over local int8 (0.05% vs. 1.2% error).
+	•	Int4 local produces moderate error (~0.44%), but Int4 global appears to fail, with errors around 52% and mismatches in document IDs.
+
+Conclusion:
+For preserving embedding quality, the int16 methods are most accurate, with the global variant being slightly superior. For int8, a global quantization method drastically reduces the error compared to per-document quantization. However, the global approach for int4 seems to be malfunctioning, indicating that further debugging or an alternative approach is needed for 4-bit global quantization.

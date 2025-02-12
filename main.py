@@ -260,10 +260,8 @@ def compare_results(results_float32: list, results_quantized: list, label: str =
                 if float32_result['score'] != 0:
                     perc_diff = (score_diff / abs(float32_result['score'])) * 100
                 else:
-                    # If both scores are zero, the difference is 0%; else, it's infinite
                     perc_diff = 0.0 if q_result['score'] == 0 else float('inf')
                 
-                # Append only finite percentage differences
                 if np.isfinite(perc_diff):
                     percentage_diffs.append(perc_diff)
                 else:
@@ -292,9 +290,7 @@ def compare_results(results_float32: list, results_quantized: list, label: str =
             logger.warning(
                 f"Float32 result missing for Quantized Doc ID={q_result['doc_id']}."
             )
-        # If both are None, do nothing
 
-    # Calculate and log summary statistics
     if percentage_diffs:
         perc_diffs_np = np.array(percentage_diffs)
         avg_perc_diff = np.mean(perc_diffs_np)
@@ -308,7 +304,6 @@ def compare_results(results_float32: list, results_quantized: list, label: str =
         logger.info(f"Minimum Percentage Difference: {min_perc_diff:.4f}%")
         
         label = label.replace(' ', '_')
-        # Plotting
         plot_score_comparison(results_float32, results_quantized, [label], f"{label}_scores_comparison.png")
         plot_percentage_differences({label: percentage_diffs}, f"{label}_percentage_diffs.png")
     else:
@@ -354,11 +349,8 @@ def compare_selected_methods():
         method_diffs = df[df['Method'] == method_name]['Percentage_Difference']
         percentage_diffs[method_name] = method_diffs[method_diffs != 'N/A'].astype(float).tolist()
 
-    # Visualize percentage differences
     plot_percentage_differences(percentage_diffs, 'percentage_diffs_comparison.png')
 
-    # Visualize score comparison - this would require a bit more work to compare all methods on one plot
-    # For simplicity, we'll plot each against Float32 in separate plots
     for method_name in percentage_diffs.keys():
         df_method = df[df['Method'] == method_name]
         float32_results = df_method['Float32_Score'].tolist()
@@ -371,20 +363,14 @@ def compare_selected_methods():
         )
 
 # ----------------- Functions to Run Each Method -----------------
-# ... (keep existing functions like run_vector_db_int8, run_vector_db_int16, etc., 
-#     but add save_to_csv calls in each function)
 def run_vector_db_int8():
     logger.info("=== Single-Stage Int8 (Local) ===")
     cleanup_folder(DB_FOLDER_INT8)
     vector_db = VectorDBInt8(folder=DB_FOLDER_INT8, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
-
     logger.info("Adding documents to Int8 DB...")
     vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-
-    # Two searches: float32 vs. int8
     results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
     results_int8    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-
     logger.info("Search Results (Float32 vs. Int8):")
     logger.info("QUERY:")
     logger.info(QUERY)
@@ -395,15 +381,16 @@ def run_vector_db_int8():
 def run_vector_db_int16():
     logger.info("=== Single-Stage Int16 (Local) ===")
     cleanup_folder(DB_FOLDER_INT16)
-    vector_db = VectorDBInt16(folder=DB_FOLDER_INT16, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
-
+    vector_db = VectorDBInt16(
+        folder=DB_FOLDER_INT16, 
+        model=MODEL_NAME, 
+        embedding_dim=EMBEDDING_DIM, 
+        embed_url="http://localhost:11434/api/embed"
+    )
     logger.info("Adding documents to Int16 DB...")
     vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-
-    # Two searches: float32 vs. int16
     results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
     results_int16   = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-
     logger.info("Search Results (Float32 vs. Int16):")
     logger.info("QUERY:")
     logger.info(QUERY)
@@ -415,14 +402,10 @@ def run_vector_db_int4():
     logger.info("=== Single-Stage Int4 (Local) ===")
     cleanup_folder(DB_FOLDER_INT4)
     vector_db = VectorDBInt4(folder=DB_FOLDER_INT4, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
-
     logger.info("Adding documents to Int4 DB...")
     vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-
-    # Two searches: float32 vs. int4
     results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
     results_int4    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-
     logger.info("Search Results (Float32 vs. Int4):")
     logger.info("QUERY:")
     logger.info(QUERY)
@@ -434,16 +417,12 @@ def run_vector_db_int8_global():
     logger.info("=== Single-Stage Int8 (Global) ===")
     cleanup_folder(DB_FOLDER_INT8_GLOBAL)
     vector_db = VectorDBInt8Global(folder=DB_FOLDER_INT8_GLOBAL, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM, global_limit=0.3)
-
     logger.info("Adding documents to Int8Global DB...")
     logger.info("QUERY:")
     logger.info(QUERY)
     vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-
-    # Two searches: float32 vs. int8_global
     results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
     results_int8    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-
     logger.info("Search Results (Float32 vs. Int8Global):")
     logger.info("QUERY:")
     logger.info(QUERY)
@@ -454,15 +433,17 @@ def run_vector_db_int8_global():
 def run_vector_db_int16_global():
     logger.info("=== Single-Stage Int16 (Global) ===")
     cleanup_folder(DB_FOLDER_INT16_GLOBAL)
-    vector_db = VectorDBInt16Global(folder=DB_FOLDER_INT16_GLOBAL, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM, global_limit=1.0)
-
+    vector_db = VectorDBInt16Global(
+        folder=DB_FOLDER_INT16_GLOBAL, 
+        model=MODEL_NAME, 
+        embedding_dim=EMBEDDING_DIM, 
+        global_limit=1.0,
+        embed_url="http://localhost:11434/api/embed"
+    )
     logger.info("Adding documents to Int16Global DB...")
     vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-
-    # Two searches: float32 vs. int16_global
     results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
     results_int16   = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-
     logger.info("Search Results (Float32 vs. Int16Global):")
     logger.info("QUERY:")
     logger.info(QUERY)
@@ -474,14 +455,10 @@ def run_vector_db_int4_global():
     logger.info("=== Single-Stage Int4 (Global) ===")
     cleanup_folder(DB_FOLDER_INT4_GLOBAL)
     vector_db = VectorDBInt4Global(folder=DB_FOLDER_INT4_GLOBAL, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM, global_limit=0.18)
-
     logger.info("Adding documents to Int4Global DB...")
     vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-
-    # Two searches: float32 vs. int4_global
     results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
     results_int4    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-
     logger.info("Search Results (Float32 vs. Int4Global):")
     logger.info("QUERY:")
     logger.info(QUERY)
@@ -489,7 +466,7 @@ def run_vector_db_int4_global():
     show_scores_side_by_side(results_float32, results_int4, label="Int4Global Side By Side")
     save_to_csv(results_float32, results_int4, "Int4Global")
     
-    # ----------------- Main -----------------
+# ----------------- Main -----------------
 if __name__ == "__main__":
     """
     This main script includes:

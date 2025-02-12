@@ -8,24 +8,27 @@ import os
 import logging
 import json
 from tqdm import tqdm
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
 class VectorDBInt16:
-    def __init__(self, folder, model="snowflake-arctic-l-v2.0", embedding_dim=1024, rdict_options=None):
+    def __init__(self, folder: str, model: str = "snowflake-arctic-embed2", embedding_dim: int = 1024, 
+                 rdict_options=None, embed_url: str = "http://localhost:11434/api/embed"):
         self.embedding_dim = embedding_dim
+        self.embed_url = embed_url  # Configurable embedding endpoint
         self._setup_config(folder, model, embedding_dim)
         self.index = self._initialize_faiss_index(folder, embedding_dim)
         self.doc_db = Rdict(os.path.join(folder, "docs"), rdict_options)
         self.folder = folder
         self.float_embeddings = {}  # Store Float32 embeddings temporarily for comparison only
 
-    def _setup_config(self, folder, model, embedding_dim):
+    def _setup_config(self, folder: str, model: str, embedding_dim: int) -> None:
         config_path = os.path.join(folder, "config.json")
         if not os.path.exists(config_path):
             if os.path.exists(folder) and len(os.listdir(folder)) > 0:
-                raise Exception(f"Folder {folder} contains files, but no config.json. If you want to create a new database, the folder must be empty.")
+                raise Exception(f"Folder {folder} contains files, but no config.json. "
+                                "If you want to create a new database, the folder must be empty.")
             os.makedirs(folder, exist_ok=True)
             with open(config_path, "w") as f:
                 config = {'version': '1.0', 'model': model, 'embedding_dim': embedding_dim}
@@ -33,7 +36,7 @@ class VectorDBInt16:
         with open(config_path, "r") as f:
             self.config = json.load(f)
 
-    def _initialize_faiss_index(self, folder, embedding_dim):
+    def _initialize_faiss_index(self, folder: str, embedding_dim: int):
         faiss_index_path = os.path.join(folder, "index.bin")
         if os.path.exists(faiss_index_path):
             index = faiss.read_index_binary(faiss_index_path)
@@ -44,35 +47,41 @@ class VectorDBInt16:
         return index
 
     def _generate_embeddings(self, texts: List[str]) -> Dict[str, Dict[str, np.ndarray]]:
-        url = "http://127.0.0.1:12345/v1/embeddings"
         results = {}
         for text in texts:
             try:
-                response = requests.post(url, json={"model": self.config["model"], "input": text})
+                response = requests.post(self.embed_url, json={"model": self.config["model"], "input": text})
                 response.raise_for_status()
                 data = response.json()
-                if 'data' in data and data['data']:
-                    embedding = np.array(data['data'][0]['embedding'])
-                    if embedding.shape[0] != self.embedding_dim:
-                        logger.error(f"Unexpected embedding dimension: {embedding.shape[0]}. Expected: {self.embedding_dim}.")
-                        continue
-
-                    # Quantize embedding to Int16
-                    quantized, min_val, max_val = self._quantize_to_int16(embedding)
-
-                    results[text] = {
-                        'float': embedding,  # Float32 embedding for temporary comparison
-                        'int16': quantized,  # Int16 embedding for storage
-                        'min_max': (min_val, max_val)  # Min-max values for dequantization
-                    }
+                # Support multiple response formats: check "embeddings" then "data"
+                if "embeddings" in data and data["embeddings"]:
+                    embedding = np.array(data["embeddings"])
+                    # If the API returns a nested list, extract the first element.
+                    if embedding.ndim > 1:
+                        embedding = embedding[0]
+                elif "data" in data and data["data"]:
+                    embedding = np.array(data["data"][0]["embedding"])
                 else:
                     logger.warning(f"No embedding generated for text: {text}")
+                    continue
+
+                if embedding.shape[0] != self.embedding_dim:
+                    logger.error(f"Unexpected embedding dimension: {embedding.shape[0]}. Expected: {self.embedding_dim}.")
+                    continue
+
+                # Quantize embedding to int16
+                quantized, min_val, max_val = self._quantize_to_int16(embedding)
+                results[text] = {
+                    'float': embedding,       # Float32 embedding for temporary comparison
+                    'int16': quantized,       # Int16 embedding for storage
+                    'min_max': (min_val, max_val)  # Min-max values for dequantization
+                }
             except Exception as e:
                 logger.error(f"Failed to generate embedding for text: {text}. Error: {e}")
         return results
 
     @staticmethod
-    def _quantize_to_int16(embedding: np.ndarray) -> (np.ndarray, float, float):
+    def _quantize_to_int16(embedding: np.ndarray) -> Tuple[np.ndarray, float, float]:
         min_val = np.min(embedding)
         max_val = np.max(embedding)
         if max_val == min_val:
@@ -81,14 +90,14 @@ class VectorDBInt16:
         return (embedding * scale).astype(np.int16), min_val, max_val
 
     @staticmethod
-    def _dequantize_int16(emb_int16: np.ndarray, min_max: tuple) -> np.ndarray:
+    def _dequantize_int16(emb_int16: np.ndarray, min_max: Tuple[float, float]) -> np.ndarray:
         min_val, max_val = min_max
         if max_val == min_val:
             return np.zeros_like(emb_int16, dtype=np.float32)
         scale = max(abs(min_val), abs(max_val)) / 32767
         return emb_int16.astype(np.float32) * scale
 
-    def add_documents(self, doc_ids: List[int], docs: List[str], batch_size=64, save=True):
+    def add_documents(self, doc_ids: List[int], docs: List[str], batch_size: int = 64, save: bool = True) -> None:
         if len(doc_ids) != len(docs):
             raise ValueError("doc_ids and docs must have the same length.")
 
@@ -101,35 +110,32 @@ class VectorDBInt16:
                 batch_ids = doc_ids[start:start + batch_size]
                 batch_docs = docs[start:start + batch_size]
                 embeddings = self._generate_embeddings(batch_docs)
-
                 if not embeddings:
                     logger.error(f"Embedding generation failed for batch: {batch_docs}")
                     continue
 
-                # Convert float32 embeddings to binary for FAISS IndexBinaryIDMap2
+                # Convert float32 embeddings to binary for FAISS approximate search
                 binary_embeddings = np.array([
-                    np.packbits((embeddings[doc]['float'] > 0).astype(np.uint8)) 
+                    np.packbits((embeddings[doc]['float'] > 0).astype(np.uint8))
                     for doc in batch_docs
                 ])
 
-                # Add to FAISS index using binary embeddings
+                # Add binary embeddings with associated IDs to FAISS index
                 self.index.add_with_ids(binary_embeddings, np.array(batch_ids, dtype=np.int64))
 
                 for doc_id, doc in zip(batch_ids, batch_docs):
                     self.doc_db[str(doc_id)] = {
                         'doc': doc,
-                        'emb_int16': embeddings[doc]['int16'],  # Store Int16 embedding
-                        'min_max': embeddings[doc]['min_max']  # Store min-max values
+                        'emb_int16': embeddings[doc]['int16'],  # Store quantized embedding
+                        'min_max': embeddings[doc]['min_max']     # Store min-max for dequantization
                     }
-                    # Float32 embeddings are stored temporarily, not in the database
+                    # Keep the original float32 embedding for temporary comparison
                     self.float_embeddings[str(doc_id)] = embeddings[doc]['float']
-
                 pbar.update(len(batch_docs))
-
         if save:
             self.save()
 
-    def search(self, query: str, k=10, binary_oversample=10, compare_float32=False) -> List[Dict]:
+    def search(self, query: str, k: int = 10, binary_oversample: int = 10, compare_float32: bool = False) -> List[Dict]:
         """
         Two-stage search mechanism:
         1. Approximate search using binary embeddings to reduce the candidate set.
@@ -147,7 +153,7 @@ class VectorDBInt16:
         query_bin = np.packbits((query_embeddings[query]['float'] > 0).astype(np.uint8))
         query_float = query_embeddings[query]['float']
 
-        # Phase I: Approximate search with binary embeddings
+        # Phase I: approximate candidate retrieval using binary embeddings
         binary_k = min(k * binary_oversample, self.index.ntotal)
         distances, ids = self.index.search(query_bin.reshape(1, -1), binary_k)
         initial_hits = [
@@ -155,7 +161,7 @@ class VectorDBInt16:
             for doc_id, dist in zip(ids[0], distances[0]) if doc_id != -1
         ]
 
-        # Phase II: Refine scores using float32 or int16 embeddings
+        # Phase II: refine scores using dot product on float32 (or dequantized int16) embeddings
         hits = []
         for hit in initial_hits:
             doc_id_str = str(hit['doc_id'])
@@ -179,11 +185,10 @@ class VectorDBInt16:
                 "score": score,
                 "doc": doc_data['doc']
             })
-
         hits.sort(key=lambda x: x['score'], reverse=True)
         return hits[:k]
 
-    def remove_document(self, doc_id: int, save=True):
+    def remove_document(self, doc_id: int, save: bool = True) -> None:
         doc_id_str = str(doc_id)
         if doc_id_str in self.doc_db:
             self.index.remove_ids(np.array([doc_id], dtype=np.int64))
@@ -192,15 +197,14 @@ class VectorDBInt16:
             logger.info(f"Document {doc_id} removed.")
         else:
             logger.warning(f"Document {doc_id} not found in the database.")
-
         if save:
             self.save()
 
-    def save(self):
+    def save(self) -> None:
         faiss.write_index_binary(self.index, os.path.join(self.folder, "index.bin"))
         logger.info("FAISS index saved to disk.")
 
-    def clear_float32_embeddings(self):
+    def clear_float32_embeddings(self) -> None:
         """Clear Float32 embeddings from memory to save space."""
         self.float_embeddings.clear()
         logger.info("Cleared all Float32 embeddings from memory.")

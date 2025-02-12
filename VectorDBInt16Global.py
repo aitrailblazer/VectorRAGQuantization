@@ -23,10 +23,11 @@ class VectorDBInt16Global:
     def __init__(
         self,
         folder: str,
-        model: str = "snowflake-arctic-l-v2.0",
+        model: str = "snowflake-arctic-embed2",
         embedding_dim: int = 1024,
         global_limit: float = 1.0,  # Example global limit ±1.0 for int16
-        rdict_options=None
+        rdict_options=None,
+        embed_url: str = "http://localhost:11434/api/embed"
     ):
         """
         Args:
@@ -35,9 +36,11 @@ class VectorDBInt16Global:
             embedding_dim: Dimensionality of each embedding.
             global_limit: Single global clipping limit (±global_limit).
             rdict_options: Optional dict config for RocksDict.
+            embed_url: URL of the embedding service endpoint.
         """
         self.embedding_dim = embedding_dim
         self.global_limit = float(global_limit)
+        self.embed_url = embed_url  # Now added to the constructor
         self._setup_config(folder, model, embedding_dim)
         self.index = self._initialize_faiss_index(folder, embedding_dim)
         self.doc_db = Rdict(os.path.join(folder, "docs"), rdict_options)
@@ -86,7 +89,7 @@ class VectorDBInt16Global:
         """
         Generate float32 embeddings for each text, then quantize them to int16 via a global ±limit.
         """
-        url = "http://127.0.0.1:12345/v1/embeddings"
+        url = self.embed_url
         results = {}
         for text in texts:
             try:
@@ -95,23 +98,31 @@ class VectorDBInt16Global:
                 data = response.json()
                 if 'data' in data and data['data']:
                     embedding = np.array(data['data'][0]['embedding'], dtype=np.float32)
-                    if embedding.shape[0] != self.embedding_dim:
-                        logger.error(
-                            f"Unexpected embedding dimension: {embedding.shape[0]}. "
-                            f"Expected: {self.embedding_dim}. Skipping '{text}'."
-                        )
-                        continue
-
-                    # Clip + quantize to int16 using a single global limit
-                    q_int16 = self._quantize_to_int16(embedding, self.global_limit)
-
-                    results[text] = {
-                        'float': embedding,  # For compare_float32
-                        'ubinary': self._to_binary(embedding),
-                        'int16': q_int16
-                    }
+                elif 'embeddings' in data and data['embeddings']:
+                    embedding = np.array(data['embeddings'], dtype=np.float32)
                 else:
                     logger.warning(f"No embedding generated for text: {text}")
+                    continue
+
+                # If the embedding is wrapped in an extra dimension, squeeze it.
+                if embedding.ndim > 1:
+                    embedding = embedding[0]
+
+                if embedding.shape[0] != self.embedding_dim:
+                    logger.error(
+                        f"Unexpected embedding dimension: {embedding.shape[0]}. "
+                        f"Expected: {self.embedding_dim}. Skipping '{text}'."
+                    )
+                    continue
+
+                # Clip and quantize to int16 using a single global limit
+                q_int16 = self._quantize_to_int16(embedding, self.global_limit)
+
+                results[text] = {
+                    'float': embedding,  # For compare_float32
+                    'ubinary': self._to_binary(embedding),
+                    'int16': q_int16
+                }
             except Exception as e:
                 logger.error(f"Failed to generate embedding for text: '{text}'. Error: {e}")
         return results
@@ -161,6 +172,7 @@ class VectorDBInt16Global:
             if str(doc_id) in self.doc_db:
                 self.remove_document(doc_id, save=False)
 
+        from tqdm import tqdm  # Ensure tqdm is imported if not already
         with tqdm(total=len(docs), desc="Indexing docs (Global Int16)") as pbar:
             for start in range(0, len(docs), batch_size):
                 batch_ids = doc_ids[start : start + batch_size]
@@ -178,7 +190,7 @@ class VectorDBInt16Global:
                 )
                 self.index.add_with_ids(binary_embeddings, np.array(batch_ids, dtype=np.int64))
 
-                # Store data in RocksDB
+                # Store data in RocksDict
                 for doc_id_val, doc_text in zip(batch_ids, batch_docs):
                     self.doc_db[str(doc_id_val)] = {
                         'doc': doc_text,
@@ -243,7 +255,7 @@ class VectorDBInt16Global:
 
     def remove_document(self, doc_id: int, save=True):
         """
-        Remove a document from FAISS index and RocksDB by doc_id.
+        Remove a document from FAISS index and RocksDict by doc_id.
         """
         doc_id_str = str(doc_id)
         if doc_id_str in self.doc_db:
@@ -259,7 +271,7 @@ class VectorDBInt16Global:
 
     def save(self):
         """
-        Save FAISS index to disk. RocksDB is consistent upon each write.
+        Save FAISS index to disk. RocksDict is updated on each write.
         """
         faiss.write_index_binary(self.index, os.path.join(self.folder, "index.bin"))
         logger.info("FAISS index saved to disk.")
