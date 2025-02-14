@@ -1,13 +1,23 @@
 # main.py
 # Copyright© 2025 Constantine Vassilev. All rights reserved
+
 import logging
 import os
+import json
+import time
 import numpy as np
+import faiss
 import shutil
 import statistics
 import pandas as pd
 from itertools import zip_longest
 import matplotlib.pyplot as plt
+import requests
+from rocksdict import Rdict
+from typing import List, Dict
+
+logger = logging.getLogger(__name__)
+
 # ----------------- Local per-document quantization -----------------
 from VectorDBInt8 import VectorDBInt8
 from VectorDBInt16 import VectorDBInt16
@@ -18,68 +28,96 @@ from VectorDBInt8Global import VectorDBInt8Global
 from VectorDBInt16Global import VectorDBInt16Global
 from VectorDBInt4Global import VectorDBInt4Global
 
+# ----------------- Cohere Specific Quantization -----------------
+from CohereVectorDBInt8 import CohereVectorDBInt8
+from CohereVectorDBBinary import CohereVectorDBBinary
+
 # Example embedding service for float32 inference
 from embedding_service import EmbeddingService
+
+########################################################################
+# We'll import "CohereVectorDBFloat" from "CohereVectorDBFloat.py"
+# to do full float-based embeddings from Cohere.
+########################################################################
+try:
+    from CohereVectorDBFloat import CohereVectorDBFloat
+    HAVE_COHERE_FLOAT = True
+except ImportError:
+    HAVE_COHERE_FLOAT = False
+
+# ----------------- New: Enhanced Cohere DB -----------------
+from CohereEnhancedVectorDB import CohereEnhancedVectorDB
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-# Delete the 'img' folder if it exists
+########################################################################
+# 1) Clean up "img" folder
+########################################################################
 img_folder = 'img'
 if os.path.exists(img_folder):
     logger.info(f"Removing existing directory: {img_folder}")
     shutil.rmtree(img_folder, ignore_errors=True)
-
 logger.info(f"Creating new directory: {img_folder}")
 os.makedirs(img_folder, exist_ok=True)
 
-# Load DOCS dynamically from the CSV
+########################################################################
+# 2) Load Documents from CSV
+########################################################################
 CSV_FILE = "Generated_AI_Examples.csv"
-
-# Read the file and extract the column into DOCS
 try:
     df = pd.read_csv(CSV_FILE)
     DOCS = df["Generated Examples"].tolist()
-    DOC_IDS = list(range(len(DOCS)))  # Regenerate DOC_IDS based on new DOCS
+    DOC_IDS = list(range(len(DOCS)))
     logger.info(f"Loaded {len(DOCS)} documents from {CSV_FILE}.")
 except Exception as e:
     logger.error(f"Failed to load {CSV_FILE}: {e}")
-    DOCS = []  # Fallback to an empty list if the file is not found
+    DOCS = []
     DOC_IDS = []
 
-# ----------------- Constants & Config -----------------
-DB_FOLDER_INT8           = "./db_int8"
-DB_FOLDER_INT16          = "./db_int16"
-DB_FOLDER_INT4           = "./db_int4"
+########################################################################
+# 3) Global Constants
+########################################################################
+DB_FOLDER_INT8            = "./db_int8"
+DB_FOLDER_INT16           = "./db_int16"
+DB_FOLDER_INT4            = "./db_int4"
 
-DB_FOLDER_INT8_GLOBAL    = "./db_int8_global"
-DB_FOLDER_INT16_GLOBAL   = "./db_int16_global"
-DB_FOLDER_INT4_GLOBAL    = "./db_int4_global"
+DB_FOLDER_INT8_GLOBAL     = "./db_int8_global"
+DB_FOLDER_INT16_GLOBAL    = "./db_int16_global"
+DB_FOLDER_INT4_GLOBAL     = "./db_int4_global"
 
-MODEL_NAME   = "snowflake-arctic-embed2"
-EMBEDDING_DIM= 1024
-K_RESULTS    = 10
-QUERY        = "Artificial intelligence is transforming industries."
+DB_FOLDER_COHERE_INT8     = "./db_cohere_int8"
+DB_FOLDER_COHERE_BINARY   = "./db_cohere_binary"
+DB_FOLDER_COHERE_FLOAT    = "./db_cohere_float"  # For float-based approach
 
+DB_FOLDER_COHERE_ENHANCED = "./db_cohere_enhanced"  # For the enhanced version
+
+MODEL_NAME    = "embed-english-v3.0"
+EMBEDDING_DIM = 1024
+K_RESULTS     = 50
+QUERY         = "Artificial intelligence is transforming industries."
+
+########################################################################
+# 4) Plotting & CSV Utilities
+########################################################################
 def plot_score_comparison(results_float32, results_quantized, labels, file_name):
     doc_ids = [r['doc_id'] for r in results_float32]
     float32_scores = [r['score'] for r in results_float32]
-    
-    # Ensure results_quantized is a list of lists, even if it's a single list
     if not isinstance(results_quantized[0], list):
         results_quantized = [results_quantized]
-    
+
     quantized_scores_list = []
     for quantized in results_quantized:
-        quantized_scores = [next((q['score'] for q in quantized if q['doc_id'] == id), None) for id in doc_ids]
+        quantized_scores = [next((q['score'] for q in quantized if q['doc_id'] == did), None) for did in doc_ids]
         quantized_scores_list.append(quantized_scores)
 
     plt.figure(figsize=(12, 6))
     plt.plot(doc_ids, float32_scores, label='Float32', marker='o')
-    for scores, label in zip(quantized_scores_list, labels):
-        if scores[0] is not None:  # Check if at least one score exists
-            plt.plot(doc_ids, scores, label=label, marker='x')
+    for scores, lab in zip(quantized_scores_list, labels):
+        if scores and scores[0] is not None:
+            plt.plot(doc_ids, scores, label=lab, marker='x')
+
     plt.xlabel('Document ID')
     plt.ylabel('Score')
     plt.title(f'Score Comparison: Float32 vs {", ".join(labels)}')
@@ -102,7 +140,6 @@ def plot_percentage_differences(percentage_diffs_dict, file_name):
     plt.savefig(f'img/{file_name}')
     plt.close()
 
-# Helper to save results to CSV
 def save_to_csv(results_float32, results_quantized, method_name, csv_file="results.csv"):
     if not results_float32 or not results_quantized:
         logger.warning(f"No results to save for method: {method_name}")
@@ -113,7 +150,7 @@ def save_to_csv(results_float32, results_quantized, method_name, csv_file="resul
         doc_id = float32_result.get('doc_id', quantized_result.get('doc_id', 'N/A'))
         float32_score = float32_result.get('score', 'N/A')
         quantized_score = quantized_result.get('score', 'N/A')
-        
+
         if float32_score != 'N/A' and quantized_score != 'N/A':
             try:
                 float32_score = float(float32_score)
@@ -121,358 +158,340 @@ def save_to_csv(results_float32, results_quantized, method_name, csv_file="resul
                 diff = abs(float32_score - quantized_score)
                 perc_diff = (diff / abs(float32_score)) * 100 if float32_score != 0 else float('inf')
             except ValueError:
-                logger.warning(f"Could not convert score to float for doc_id {doc_id}")
                 diff = 'N/A'
                 perc_diff = 'N/A'
         else:
             diff = 'N/A'
             perc_diff = 'N/A'
-        
+
         data.append({
             'Method': method_name,
             'Doc_ID': doc_id,
             'Float32_Score': float32_score,
             f'{method_name}_Score': quantized_score,
-            'Difference': diff if diff != 'N/A' else diff,
-            'Percentage_Difference': perc_diff if perc_diff != 'N/A' else perc_diff
+            'Difference': diff,
+            'Percentage_Difference': perc_diff
         })
 
     df = pd.DataFrame(data)
-
-    # Check if the CSV file already exists to decide whether to append or write new
-    if os.path.exists(csv_file):
-        # Read existing data to check for duplicates
+    csv_exists = os.path.exists(csv_file)
+    if csv_exists:
         existing_df = pd.read_csv(csv_file)
-        # Concatenate new data, ensuring no duplicates based on method and doc_id
         df = pd.concat([existing_df, df]).drop_duplicates(subset=['Method', 'Doc_ID'], keep='last')
-        df.to_csv(csv_file, mode='w', index=False)  # Overwrite with updated data
+        df.to_csv(csv_file, mode='w', index=False)
     else:
         df.to_csv(csv_file, mode='w', index=False)
 
     logger.info(f"Results saved for {method_name} to {csv_file}")
 
-# ----------------- Helper: Show Scores Side by Side -----------------
-def show_scores_side_by_side(results_float32: list, results_two_stage: list, label: str):
-    """
-    Merge doc IDs from both float32 and two-stage results.
-    Show them side by side with their scores (or None if a doc doesn't appear in one set),
-    including the percentage difference.
-    """
-    # Build maps for quick lookup
-    float_map = {r["doc_id"]: {"score": r["score"], "doc": r["doc"]} for r in results_float32}
-    two_map = {r["doc_id"]: {"score": r["score"], "doc": r["doc"]} for r in results_two_stage}
+########################################################################
+# 4a) Helper: Get directory size in bytes
+########################################################################
+def get_directory_size(directory: str) -> int:
+    total = 0
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total += os.path.getsize(fp)
+    return total
 
-    # Union of all doc IDs
-    all_ids = float_map.keys() | two_map.keys()
+########################################################################
+# 4b) Helper: Normalize results via min-max mapping
+########################################################################
+def normalize_results(results, target_min, target_max):
+    raw_scores = [r['score'] for r in results]
+    raw_min = min(raw_scores)
+    raw_max = max(raw_scores)
+    if raw_max == raw_min:
+        return results
+    normalized = []
+    for r in results:
+        norm_score = (r['score'] - raw_min) / (raw_max - raw_min) * (target_max - target_min) + target_min
+        new_r = r.copy()
+        new_r['score'] = norm_score
+        normalized.append(new_r)
+    return normalized
 
-    # Merge the results
-    merged_list = []
-    for doc_id in all_ids:
-        float_entry = float_map.get(doc_id)
-        two_entry = two_map.get(doc_id)
-        fs = float_entry["score"] if float_entry else None
-        qs = two_entry["score"] if two_entry else None
-        doc_text = (float_entry or two_entry)["doc"] if (float_entry or two_entry) else "N/A"
-        merged_list.append((doc_id, fs, qs, doc_text))
-
-    # Sort the merged list primarily by float32 score if present, else by the two-stage score
-    merged_list.sort(
-        key=lambda x: x[1] if x[1] is not None else (x[2] if x[2] is not None else -float('inf')),
-        reverse=True
-    )
-
-    # Initialize statistics
-    percentage_diffs = []
-
-    # Print the query once at the beginning
-    logger.info("QUERY:")
-    logger.info(QUERY)
-
-    # Print out the results
-    logger.info(f"\n=== Detailed Score Comparison: Float32 vs. {label} ===")
-    for doc_id, fs, qs, doc_text in merged_list:
-        if fs is not None and qs is not None:
-            diff = abs(fs - qs)
-            perc_diff = (diff / abs(fs)) * 100 if fs != 0 else float('inf')
-            percentage_diffs.append(perc_diff)
-            logger.info(
-                f"Doc ID={doc_id}, float32={fs:.8f}, {label}={qs:.8f}, "
-                f"diff={diff:.8f}, diff%={perc_diff:.4f}%, doc='{doc_text[:60]}...'"
-            )
-        elif fs is None and qs is not None:
-            logger.info(
-                f"Doc ID={doc_id}, float32=None, {label}={qs:.8f}, "
-                f"diff%='N/A', doc='{doc_text[:60]}...'"
-            )
-        elif fs is not None and qs is None:
-            logger.info(
-                f"Doc ID={doc_id}, float32={fs:.8f}, {label}=None, "
-                f"diff%='N/A', doc='{doc_text[:60]}...'"
-            )
-        else:
-            logger.info(
-                f"Doc ID={doc_id}, float32=None, {label}=None, "
-                f"diff%='N/A', doc='{doc_text[:60]}...'"
-            )
-
-    # Calculate and log summary statistics if there are percentage differences
-    if percentage_diffs:
-        avg_perc_diff = np.mean(percentage_diffs)
-        max_perc_diff = np.max(percentage_diffs)
-        min_perc_diff = np.min(percentage_diffs)
-        median_perc_diff = np.median(percentage_diffs)
-        logger.info(f"\n=== Summary of Percentage Differences for {label} ===")
-        logger.info(f"Average Percentage Difference: {avg_perc_diff:.4f}%")
-        logger.info(f"Median Percentage Difference: {median_perc_diff:.4f}%")
-        logger.info(f"Maximum Percentage Difference: {max_perc_diff:.4f}%")
-        logger.info(f"Minimum Percentage Difference: {min_perc_diff:.4f}%")
-        
-        label = label.replace(' ', '_')
-        # Plotting
-        plot_score_comparison(results_float32, [results_two_stage], [label], f"{label}_scores_comparison.png")
-        plot_percentage_differences({label: percentage_diffs}, f"{label}_percentage_diffs.png")
-    else:
-        logger.info("\nNo matching documents with both Float32 and Quantized scores to compare.")
-
-def compare_results(results_float32: list, results_quantized: list, label: str = "Quantized"):
-    """
-    Compare documents from float32 and quantized search results in rank order.
-    
-    - Logs detailed comparison for each document pair, including absolute and percentage differences.
-    - Handles cases where the number of results differs between float32 and quantized lists.
-    - Logs warnings for mismatched document IDs or missing documents.
-    - Computes and logs summary statistics (average, median, max, min) of percentage differences.
-    
-    Args:
-        results_float32 (list): List of dictionaries containing float32 search results.
-        results_quantized (list): List of dictionaries containing quantized search results.
-        label (str, optional): Label for the quantized results (e.g., "Int8"). Defaults to "Quantized".
-    """
-    logger.info(f"\nComparison of Scores (Float32 vs. {label}):")
-    percentage_diffs = []
-    comparison_data = []
-
-    # Use zip_longest to handle unequal list lengths
-    for float32_result, q_result in zip_longest(results_float32, results_quantized, fillvalue=None):
-        if float32_result and q_result:
-            if float32_result['doc_id'] == q_result['doc_id']:
-                score_diff = abs(float32_result['score'] - q_result['score'])
-                if float32_result['score'] != 0:
-                    perc_diff = (score_diff / abs(float32_result['score'])) * 100
-                else:
-                    perc_diff = 0.0 if q_result['score'] == 0 else float('inf')
-                
-                if np.isfinite(perc_diff):
-                    percentage_diffs.append(perc_diff)
-                else:
-                    logger.warning(
-                        f"Percentage difference is infinite for Doc ID={float32_result['doc_id']} "
-                        f"due to zero float32 score with non-zero quantized score."
-                    )
-                
-                logger.info(
-                    f"Doc ID: {float32_result['doc_id']}, "
-                    f"Float32 Score: {float32_result['score']:.8f}, "
-                    f"{label} Score: {q_result['score']:.8f}, "
-                    f"Difference: {score_diff:.8f}, "
-                    f"Difference%: {perc_diff:.4f}%"
-                )
-            else:
-                logger.warning(
-                    f"Document IDs do not match: Float32 Doc ID={float32_result['doc_id']} "
-                    f"vs Quantized Doc ID={q_result['doc_id']}."
-                )
-        elif float32_result and not q_result:
-            logger.warning(
-                f"Quantized result missing for Float32 Doc ID={float32_result['doc_id']}."
-            )
-        elif q_result and not float32_result:
-            logger.warning(
-                f"Float32 result missing for Quantized Doc ID={q_result['doc_id']}."
-            )
-
-    if percentage_diffs:
-        perc_diffs_np = np.array(percentage_diffs)
-        avg_perc_diff = np.mean(perc_diffs_np)
-        median_perc_diff = np.median(perc_diffs_np)
-        max_perc_diff = np.max(perc_diffs_np)
-        min_perc_diff = np.min(perc_diffs_np)
-        logger.info(f"\n=== Summary of Percentage Differences for {label} ===")
-        logger.info(f"Average Percentage Difference: {avg_perc_diff:.4f}%")
-        logger.info(f"Median Percentage Difference: {median_perc_diff:.4f}%")
-        logger.info(f"Maximum Percentage Difference: {max_perc_diff:.4f}%")
-        logger.info(f"Minimum Percentage Difference: {min_perc_diff:.4f}%")
-        
-        label = label.replace(' ', '_')
-        plot_score_comparison(results_float32, results_quantized, [label], f"{label}_scores_comparison.png")
-        plot_percentage_differences({label: percentage_diffs}, f"{label}_percentage_diffs.png")
-    else:
-        logger.info("No matching documents to compare.")
-
-# ----------------- Utility: Cleanup a Folder -----------------
+########################################################################
+# 5) Misc Helpers: compare + log
+########################################################################
 def cleanup_folder(folder_path: str):
-    """
-    Safely remove the folder_path if it exists, including all subdirectories.
-    If folder_path does not exist, log that it's not found and return.
-    """
-    if not os.path.exists(folder_path):
+    if os.path.exists(folder_path):
+        logger.info(f"Removing existing directory: {folder_path}")
+        shutil.rmtree(folder_path, ignore_errors=True)
+    else:
         logger.info(f"Directory not found: {folder_path}, nothing to remove.")
-        return
 
-    logger.info(f"Removing existing directory: {folder_path}")
-    shutil.rmtree(folder_path, ignore_errors=True)
-
-# Function to compare selected methods
-def compare_selected_methods():
-    methods = [
-        ("Int4", run_vector_db_int4),
-        ("Int4Global", run_vector_db_int4_global),
-        ("Int8", run_vector_db_int8),
-        ("Int8Global", run_vector_db_int8_global),
-        ("Int16", run_vector_db_int16),
-        ("Int16Global", run_vector_db_int16_global)
-    ]
-    percentage_diffs = {}
-
-    # Delete previous results.csv if it exists
-    results_csv_path = "results.csv"
-    if os.path.exists(results_csv_path):
-        os.remove(results_csv_path)
-
-    for method_name, method_func in methods:
-        logger.info(f"\nStarting {method_name} Method...")
-        method_func()
-        logger.info(f"Completed {method_name} Method.")
-
-        # Collecting percentage differences for visualization
-        df = pd.read_csv(results_csv_path)
-        method_diffs = df[df['Method'] == method_name]['Percentage_Difference']
-        percentage_diffs[method_name] = method_diffs[method_diffs != 'N/A'].astype(float).tolist()
-
-    plot_percentage_differences(percentage_diffs, 'percentage_diffs_comparison.png')
-
-    for method_name in percentage_diffs.keys():
-        df_method = df[df['Method'] == method_name]
-        float32_results = df_method['Float32_Score'].tolist()
-        quantized_results = df_method[f'{method_name}_Score'].tolist()
-        plot_score_comparison(
-            [{'doc_id': i, 'score': score} for i, score in enumerate(float32_results)],
-            [{'doc_id': i, 'score': score} for i, score in enumerate(quantized_results)],
-            [method_name],
-            f'{method_name}_score_comparison.png'
-        )
-
-# ----------------- Functions to Run Each Method -----------------
-def run_vector_db_int8():
-    logger.info("=== Single-Stage Int8 (Local) ===")
-    cleanup_folder(DB_FOLDER_INT8)
-    vector_db = VectorDBInt8(folder=DB_FOLDER_INT8, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
-    logger.info("Adding documents to Int8 DB...")
-    vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-    results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
-    results_int8    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-    logger.info("Search Results (Float32 vs. Int8):")
-    logger.info("QUERY:")
-    logger.info(QUERY)
-    compare_results(results_float32, results_int8, label="Int8")
-    show_scores_side_by_side(results_float32, results_int8, label="Int8 Side By Side")
-    save_to_csv(results_float32, results_int8, "Int8")
-
-def run_vector_db_int16():
-    logger.info("=== Single-Stage Int16 (Local) ===")
-    cleanup_folder(DB_FOLDER_INT16)
-    vector_db = VectorDBInt16(
-        folder=DB_FOLDER_INT16, 
-        model=MODEL_NAME, 
-        embedding_dim=EMBEDDING_DIM, 
-        embed_url="http://localhost:11434/api/embed"
-    )
-    logger.info("Adding documents to Int16 DB...")
-    vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-    results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
-    results_int16   = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-    logger.info("Search Results (Float32 vs. Int16):")
-    logger.info("QUERY:")
-    logger.info(QUERY)
-    compare_results(results_float32, results_int16, label="Int16")
-    show_scores_side_by_side(results_float32, results_int16, label="Int16 Side By Side")
-    save_to_csv(results_float32, results_int16, "Int16")
-
-def run_vector_db_int4():
-    logger.info("=== Single-Stage Int4 (Local) ===")
-    cleanup_folder(DB_FOLDER_INT4)
-    vector_db = VectorDBInt4(folder=DB_FOLDER_INT4, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
-    logger.info("Adding documents to Int4 DB...")
-    vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-    results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
-    results_int4    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-    logger.info("Search Results (Float32 vs. Int4):")
-    logger.info("QUERY:")
-    logger.info(QUERY)
-    compare_results(results_float32, results_int4, label="Int4")
-    show_scores_side_by_side(results_float32, results_int4, label="Int4 Side By Side")
-    save_to_csv(results_float32, results_int4, "Int4")
-
-def run_vector_db_int8_global():
-    logger.info("=== Single-Stage Int8 (Global) ===")
-    cleanup_folder(DB_FOLDER_INT8_GLOBAL)
-    vector_db = VectorDBInt8Global(folder=DB_FOLDER_INT8_GLOBAL, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM, global_limit=0.3)
-    logger.info("Adding documents to Int8Global DB...")
-    logger.info("QUERY:")
-    logger.info(QUERY)
-    vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-    results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
-    results_int8    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-    logger.info("Search Results (Float32 vs. Int8Global):")
-    logger.info("QUERY:")
-    logger.info(QUERY)
-    compare_results(results_float32, results_int8, label="Int8Global")
-    show_scores_side_by_side(results_float32, results_int8, label="Int8Global Side By Side")
-    save_to_csv(results_float32, results_int8, "Int8Global")
-
-def run_vector_db_int16_global():
-    logger.info("=== Single-Stage Int16 (Global) ===")
-    cleanup_folder(DB_FOLDER_INT16_GLOBAL)
-    vector_db = VectorDBInt16Global(
-        folder=DB_FOLDER_INT16_GLOBAL, 
-        model=MODEL_NAME, 
-        embedding_dim=EMBEDDING_DIM, 
-        global_limit=1.0,
-        embed_url="http://localhost:11434/api/embed"
-    )
-    logger.info("Adding documents to Int16Global DB...")
-    vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-    results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
-    results_int16   = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-    logger.info("Search Results (Float32 vs. Int16Global):")
-    logger.info("QUERY:")
-    logger.info(QUERY)
-    compare_results(results_float32, results_int16, label="Int16Global")
-    show_scores_side_by_side(results_float32, results_int16, label="Int16Global Side By Side")
-    save_to_csv(results_float32, results_int16, "Int16Global")
-
-def run_vector_db_int4_global():
-    logger.info("=== Single-Stage Int4 (Global) ===")
-    cleanup_folder(DB_FOLDER_INT4_GLOBAL)
-    vector_db = VectorDBInt4Global(folder=DB_FOLDER_INT4_GLOBAL, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM, global_limit=0.18)
-    logger.info("Adding documents to Int4Global DB...")
-    vector_db.add_documents(doc_ids=DOC_IDS, docs=DOCS)
-    results_float32 = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=True)
-    results_int4    = vector_db.search(query=QUERY, k=K_RESULTS, compare_float32=False)
-    logger.info("Search Results (Float32 vs. Int4Global):")
-    logger.info("QUERY:")
-    logger.info(QUERY)
-    compare_results(results_float32, results_int4, label="Int4Global")
-    show_scores_side_by_side(results_float32, results_int4, label="Int4Global Side By Side")
-    save_to_csv(results_float32, results_int4, "Int4Global")
+########################################################################
+# 6) Build & Run: Cohere Float
+########################################################################
+def run_cohere_vector_db_float():
+    logger.info("=== Single-Stage Cohere Float (Benchmark) ===")
+    if not HAVE_COHERE_FLOAT:
+        logger.warning("CohereVectorDBFloat not available. Skipping float method.")
+        return None
+    cleanup_folder(DB_FOLDER_COHERE_FLOAT)
+    from CohereVectorDBFloat import CohereVectorDBFloat
+    float_db = CohereVectorDBFloat(folder=DB_FOLDER_COHERE_FLOAT, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
     
-# ----------------- Main -----------------
-if __name__ == "__main__":
-    """
-    This main script includes:
-      1) Comparison of selected quantization methods (Int4, Int4Global, Int8, Int8Global, Int16, Int16Global).
-      2) Saving results to CSV and generating visualizations.
+    t0 = time.time()
+    logger.info("Adding documents to Cohere Float DB...")
+    float_db.add_documents(DOC_IDS, DOCS)
+    t1 = time.time()
+    build_time = t1 - t0
+    float_db_size = get_directory_size(DB_FOLDER_COHERE_FLOAT)
+    logger.info("Time to build Cohere Float DB: %.2f seconds", build_time)
+    logger.info("Cohere Float DB size: %d bytes", float_db_size)
+    
+    t2 = time.time()
+    logger.info("Performing float-based search for the query...")
+    results_float = float_db.search(query=QUERY, k=K_RESULTS)
+    t3 = time.time()
+    search_time = t3 - t2
+    logger.info("Time to retrieve Cohere Float results: %.2f seconds", search_time)
+    
+    logger.info("Search Results (CohereFloat):")
+    logger.info(f"QUERY: {QUERY}")
+    for r in results_float:
+        logger.info(f" DocID={r['doc_id']}, Score={r['score']:.6f}, Doc='{r['doc']}'")
+    
+    save_to_csv(results_float, results_float, "CohereFloat")
+    return {"results": results_float, "build_time": build_time, "search_time": search_time, "db_size": float_db_size}
 
-    Running selected methods:
-    """
-    compare_selected_methods()
+########################################################################
+# 7) Build & Run: Cohere Int8 with Min-Max Normalization
+########################################################################
+def run_cohere_vector_db_int8():
+    logger.info("=== Single-Stage Cohere Int8 (Local) ===")
+    cleanup_folder(DB_FOLDER_COHERE_INT8)
+    from CohereVectorDBInt8 import CohereVectorDBInt8
+    int8_db = CohereVectorDBInt8(folder=DB_FOLDER_COHERE_INT8, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
+    
+    t0 = time.time()
+    logger.info("Adding documents to Cohere Int8 DB...")
+    int8_db.add_documents(DOC_IDS, DOCS)
+    t1 = time.time()
+    build_time = t1 - t0
+    int8_db_size = get_directory_size(DB_FOLDER_COHERE_INT8)
+    logger.info("Time to build Cohere Int8 DB: %.2f seconds", build_time)
+    logger.info("Cohere Int8 DB size: %d bytes", int8_db_size)
+    
+    t2 = time.time()
+    results_cohere_int8 = int8_db.search(query=QUERY, k=K_RESULTS)
+    t3 = time.time()
+    search_time = t3 - t2
+    logger.info("Time to retrieve raw Cohere Int8 results: %.2f seconds", search_time)
+    
+    logger.info("Raw Search Results (Cohere Int8):")
+    logger.info(f"QUERY: {QUERY}")
+    for r in results_cohere_int8:
+        logger.info(f" DocID={r['doc_id']}, Raw Score={r['score']}, Doc='{r['doc']}'")
+    
+    from CohereVectorDBFloat import CohereVectorDBFloat
+    float_db = CohereVectorDBFloat(folder=DB_FOLDER_COHERE_FLOAT, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
+    if len(float_db) == 0:
+        logger.info("Cohere Float DB empty in normalization step. Adding docs now.")
+        float_db.add_documents(DOC_IDS, DOCS)
+    results_float = float_db.search(query=QUERY, k=K_RESULTS)
+    target_scores = [r['score'] for r in results_float]
+    target_min, target_max = min(target_scores), max(target_scores)
+    logger.info("Target range from CohereFloat: min=%.6f, max=%.6f", target_min, target_max)
+    
+    normalized_int8_results = normalize_results(results_cohere_int8, target_min, target_max)
+    normalized_int8_results = sorted(normalized_int8_results, key=lambda r: r['score'], reverse=True)
+    
+    logger.info("Normalized Search Results (Cohere Int8):")
+    for r in normalized_int8_results:
+        logger.info(f" DocID={r['doc_id']}, Normalized Score={r['score']:.6f}, Doc='{r['doc']}'")
+    
+    save_to_csv(normalized_int8_results, normalized_int8_results, "CohereInt8")
+    return {"results": normalized_int8_results, "build_time": build_time, "search_time": search_time, "db_size": int8_db_size}
+
+########################################################################
+# 7a) New Method: Search with Rerank using Cohere's Rerank API
+########################################################################
+def run_cohere_rerank():
+    from CohereVectorDBInt8 import CohereVectorDBInt8
+    int8_db = CohereVectorDBInt8(folder=DB_FOLDER_COHERE_INT8, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
+    if len(int8_db) == 0:
+        logger.info("Cohere Int8 DB is empty. Adding documents now.")
+        int8_db.add_documents(DOC_IDS, DOCS)
+    
+    t0 = time.time()
+    logger.info("Calling search_rerank_cohere()...")
+    rerank_results = int8_db.search_rerank_cohere(
+        query=QUERY,
+        k=50,
+        binary_oversample=10,
+        rerank_model="rerank-english-v3.0"
+    )
+    t1 = time.time()
+    rerank_time = t1 - t0
+    logger.info("Time to retrieve reranked results: %.2f seconds", rerank_time)
+    
+    logger.info("Reranked Results:")
+    for r in rerank_results:
+        logger.info(f" DocID={r['doc_id']}, Score={r['score']:.4f}, Doc='{r['doc']}'")
+    return {"results": rerank_results, "rerank_time": rerank_time}
+
+########################################################################
+# 8) Build & Run: Enhanced Cohere DB (Multi-Phase Search)
+########################################################################
+def run_cohere_enhanced():
+    logger.info("=== Enhanced Cohere DB (Multi-Phase: int8/ubinary/float) ===")
+    cleanup_folder(DB_FOLDER_COHERE_ENHANCED)
+    enhanced_db = CohereEnhancedVectorDB(folder=DB_FOLDER_COHERE_ENHANCED, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
+    
+    t0 = time.time()
+    logger.info("Adding documents to Cohere Enhanced DB...")
+    enhanced_db.add_documents(DOC_IDS, DOCS)
+    t1 = time.time()
+    build_time = t1 - t0
+    enhanced_db_size = get_directory_size(DB_FOLDER_COHERE_ENHANCED)
+    logger.info("Time to build Cohere Enhanced DB: %.2f seconds", build_time)
+    logger.info("Cohere Enhanced DB size: %d bytes", enhanced_db_size)
+    
+    t2 = time.time()
+    logger.info("Performing enhanced search for the query...")
+    enhanced_results = enhanced_db.search(query=QUERY, k=K_RESULTS)
+    t3 = time.time()
+    search_time = t3 - t2
+    logger.info("Time to retrieve enhanced results: %.2f seconds", search_time)
+    
+    logger.info("Enhanced Search Results:")
+    logger.info(f"QUERY: {QUERY}")
+    for r in enhanced_results:
+        logger.info(f" DocID={r['doc_id']}, Score={r.get('score_cosine', r.get('score')):.6f}, Doc='{r['doc']}'")
+    
+    save_to_csv(enhanced_results, enhanced_results, "CohereEnhanced")
+    return {"results": enhanced_results, "build_time": build_time, "search_time": search_time, "db_size": enhanced_db_size}
+
+########################################################################
+# 9) Compare Top-10 Float vs. Int8 (Doc by Doc)
+########################################################################
+def get_top_cohere_float() -> list:
+    if not HAVE_COHERE_FLOAT:
+        logger.warning("CohereVectorDBFloat not available, returning empty float results.")
+        return []
+    from CohereVectorDBFloat import CohereVectorDBFloat
+    db = CohereVectorDBFloat(folder=DB_FOLDER_COHERE_FLOAT, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
+    if len(db) == 0:
+        logger.info("Cohere Float DB empty. Adding docs now.")
+        db.add_documents(DOC_IDS, DOCS)
+    results = db.search(query=QUERY, k=50)
+    results = sorted(results, key=lambda r: r['score'], reverse=True)
+    return results
+
+def get_top_cohere_int8() -> list:
+    from CohereVectorDBInt8 import CohereVectorDBInt8
+    db = CohereVectorDBInt8(folder=DB_FOLDER_COHERE_INT8, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
+    if len(db) == 0:
+        logger.info("Cohere Int8 DB empty. Adding docs now.")
+        db.add_documents(DOC_IDS, DOCS)
+    raw_int8_results = db.search(query=QUERY, k=50)
+    
+    from CohereVectorDBFloat import CohereVectorDBFloat
+    float_db = CohereVectorDBFloat(folder=DB_FOLDER_COHERE_FLOAT, model=MODEL_NAME, embedding_dim=EMBEDDING_DIM)
+    if len(float_db) == 0:
+        logger.info("Cohere Float DB empty in normalization step. Adding docs now.")
+        float_db.add_documents(DOC_IDS, DOCS)
+    float_results = float_db.search(query=QUERY, k=50)
+    target_scores = [r['score'] for r in float_results]
+    target_min, target_max = min(target_scores), max(target_scores)
+    
+    normalized_int8_results = normalize_results(raw_int8_results, target_min, target_max)
+    normalized_int8_results = sorted(normalized_int8_results, key=lambda r: r['score'], reverse=True)
+    return normalized_int8_results
+
+def compare_top_float_and_int8():
+    logger.info("\n=== Compare Top-10 Float vs. Int8 ===")
+    top_float = get_top_cohere_float()
+    logger.info(" --- Top-10 Float ---")
+    for f in top_float:
+        logger.info(f"  DocID={f['doc_id']}, Score={f['score']:.4f}, Doc='{f['doc']}'")
+
+    top_int8 = get_top_cohere_int8()
+    logger.info(" --- Top-10 Int8 ---")
+    for i in top_int8:
+        logger.info(f"  DocID={i['doc_id']}, Score={i['score']:.4f}, Doc='{i['doc']}'")
+
+    logger.info("\n=== Float vs. Int8 (Top-10 Overlap) ===")
+    float_map = {item["doc_id"]: item for item in top_float}
+    int8_map  = {item["doc_id"]: item for item in top_int8}
+    all_ids   = set(float_map.keys()) | set(int8_map.keys())
+
+    diffs = []
+    for did in all_ids:
+        f_item = float_map.get(did)
+        i_item = int8_map.get(did)
+        if f_item and i_item:
+            f_score = f_item["score"]
+            i_score = i_item["score"]
+            diff = abs(f_score - i_score)
+            diffs.append(diff)
+            logger.info(f"DocID={did}, Float={f_score:.4f}, Int8={i_score:.4f}, Diff={diff:.4f}")
+        elif f_item:
+            logger.info(f"DocID={did} => ONLY in Float top10, Score={f_item['score']:.4f}")
+        elif i_item:
+            logger.info(f"DocID={did} => ONLY in Int8 top10, Score={i_item['score']:.4f}")
+
+    if diffs:
+        arr = np.array(diffs)
+        logger.info(f"\nDifferences Stats: avg={arr.mean():.4f}, min={arr.min():.4f}, max={arr.max():.4f}")
+
+########################################################################
+# 10) Main: Compare selected methods, then unify top-10, call rerank, and summarize metrics
+########################################################################
+if __name__ == "__main__":
+    def format_time(seconds):
+        mins = int(seconds // 60)
+        secs = seconds % 60
+        if mins > 0:
+            return f"{mins} min {secs:.2f} sec"
+        else:
+            return f"{secs:.2f} sec"
+
+    def format_size(bytes_):
+        mb = bytes_ / (1024 * 1024)
+        return f"{mb:.2f} MB"
+
+    # Run the selected methods and collect performance metrics.
+    float_metrics    = run_cohere_vector_db_float()      # Cohere Float
+    int8_metrics     = run_cohere_vector_db_int8()         # Cohere Int8 with normalization
+    enhanced_metrics = run_cohere_enhanced()               # New Enhanced Cohere DB
+    rerank_metrics   = run_cohere_rerank()                 # Cohere rerank using API
+
+    compare_top_float_and_int8()
+
+    # Summary:
+    logger.info("\n=== Summary of Performance Metrics ===")
+    if float_metrics and int8_metrics and enhanced_metrics and rerank_metrics:
+        float_build = float_metrics["build_time"]
+        int8_build = int8_metrics["build_time"]
+        enhanced_build = enhanced_metrics["build_time"]
+        build_gain = ((float_build - int8_build) / float_build) * 100
+
+        float_search = float_metrics["search_time"]
+        int8_search = int8_metrics["search_time"]
+        enhanced_search = enhanced_metrics["search_time"]
+        search_gain = ((float_search - int8_search) / float_search) * 100
+
+        float_size = float_metrics["db_size"]
+        int8_size = int8_metrics["db_size"]
+        enhanced_size = enhanced_metrics["db_size"]
+        size_gain = ((float_size - int8_size) / float_size) * 100
+
+        rerank_time = rerank_metrics["rerank_time"]
+
+        logger.info("Float DB Build Time:    %s", format_time(float_build))
+        logger.info("Int8 DB Build Time:     %s (%.2f%% faster)", format_time(int8_build), build_gain)
+        logger.info("Enhanced DB Build Time: %s", format_time(enhanced_build))
+        logger.info("Float DB Search Time:   %s", format_time(float_search))
+        logger.info("Int8 DB Search Time:    %s (%.2f%% faster)", format_time(int8_search), search_gain)
+        logger.info("Enhanced DB Search Time:%s", format_time(enhanced_search))
+        logger.info("Float DB Size:          %s", format_size(float_size))
+        logger.info("Int8 DB Size:           %s (%.2f%% smaller)", format_size(int8_size), size_gain)
+        logger.info("Enhanced DB Size:       %s", format_size(enhanced_size))
+        logger.info("Rerank Time:            %s", format_time(rerank_time))
+    else:
+        logger.info("One or more performance metrics are missing.")
