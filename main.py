@@ -1,6 +1,67 @@
 # main.py
 # Copyright© 2025 Constantine Vassilev. All rights reserved
 
+"""
+Detailed Description:
+---------------------
+
+This script serves as the main entry point for benchmarking and comparing various vector database implementations
+that leverage Cohere’s embedding API along with different quantization techniques and indexing strategies.
+The primary goals of the script are to:
+
+1. Load documents from a CSV file.
+2. Build several types of vector databases:
+   - Local per-document quantization (Int8, Int16, Int4)
+   - Global-limit quantization (Int8Global, Int16Global, Int4Global)
+   - Cohere-specific quantization using int8 embeddings and signed binary representations.
+   - Full float-based embeddings (if available) using CohereVectorDBFloat.
+   - An enhanced multi-phase search database (CohereEnhancedVectorDB) which combines int8, ubinary, and float embeddings.
+3. Execute search queries using these databases and compare their performance in terms of:
+   - Build time (time taken to index the documents)
+   - Search time (time taken to retrieve search results)
+   - Storage size of the built indexes
+4. Optionally perform a rerank step using Cohere’s rerank API to refine the search results.
+5. Compare the top results from the float-based database against the quantized databases and generate summary statistics.
+6. Generate plots and CSV outputs to visualize the score comparisons and percentage differences.
+
+Workflow Overview:
+------------------
+- **Initialization and Setup:**  
+  - The script begins by cleaning up an output directory (for generated images).
+  - Documents are loaded from a CSV file named "Generated_AI_Examples.csv".
+  - Global constants such as database folder paths, the embedding model name, embedding dimensions, query string, and the number of results are defined.
+
+- **Plotting and Utility Functions:**  
+  - Functions are provided to plot score comparisons and percentage differences, save CSV reports, normalize scores, and calculate folder sizes.
+
+- **Building and Querying Vector Databases:**  
+  - Each database variant (Float, Int8, Enhanced, etc.) has its dedicated function to:
+      1. Build the database by indexing documents and generating embeddings.
+      2. Execute search queries and measure the performance.
+      3. Log detailed metrics including build time, search time, and database size.
+  - For int8-based approaches, scores are normalized against the float-based results to allow fair comparison.
+
+- **Reranking:**  
+  - An additional function demonstrates how to use Cohere’s rerank API to reorder a candidate list of results.
+
+- **Comparison and Summary:**  
+  - The script compares the top search results from the float-based and int8-based databases.
+  - A final summary of all performance metrics is logged, including percentage improvements in build/search times and index sizes.
+
+Usage:
+------
+Ensure the following environment variables are set before running the script:
+    - COHERE_EMBED_ENDPOINT: URL for the Cohere embedding API.
+    - COHERE_EMBED_KEY: API key for the Cohere service.
+    - (Optional) COHERE_RERANK_ENDPOINT and COHERE_RERANK_KEY for reranking.
+
+To run the script:
+    python main.py
+
+Results (plots and CSV) are stored in the output folder ("img") and a CSV file ("results.csv").
+
+"""
+
 import logging
 import os
 import json
@@ -19,14 +80,14 @@ from typing import List, Dict
 logger = logging.getLogger(__name__)
 
 # ----------------- Local per-document quantization -----------------
-from VectorDBInt8 import VectorDBInt8
-from VectorDBInt16 import VectorDBInt16
-from VectorDBInt4 import VectorDBInt4
+#from VectorDBInt8 import VectorDBInt8
+#from VectorDBInt16 import VectorDBInt16
+#from VectorDBInt4 import VectorDBInt4
 
 # ----------------- Global-limit quantization -----------------
-from VectorDBInt8Global import VectorDBInt8Global
-from VectorDBInt16Global import VectorDBInt16Global
-from VectorDBInt4Global import VectorDBInt4Global
+#from VectorDBInt8Global import VectorDBInt8Global
+#from VectorDBInt16Global import VectorDBInt16Global
+#from VectorDBInt4Global import VectorDBInt4Global
 
 # ----------------- Cohere Specific Quantization -----------------
 from CohereVectorDBInt8 import CohereVectorDBInt8
